@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-24T23:48:01+08:00",
+  "generated_at": "2026-10-24T23:50:10+08:00",
   "report_version": "0.4.0",
   "summary": {
     "total": 48,
@@ -6504,9 +6504,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T04-v1-1",
-              "T04-v1-2"
+            "runs": [
+              {
+                "run_id": "T04-v1-1",
+                "success": true
+              },
+              {
+                "run_id": "T04-v1-2",
+                "success": true
+              }
             ]
           },
           "v2": {
@@ -6518,9 +6524,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T04-v2-1",
-              "T04-v2-2"
+            "runs": [
+              {
+                "run_id": "T04-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T04-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6550,9 +6562,15 @@
             "kind_labels": [
               "说了却没做"
             ],
-            "run_ids": [
-              "T05-v1-1",
-              "T05-v1-2"
+            "runs": [
+              {
+                "run_id": "T05-v1-1",
+                "success": true
+              },
+              {
+                "run_id": "T05-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6564,9 +6582,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T05-v2-1",
-              "T05-v2-2"
+            "runs": [
+              {
+                "run_id": "T05-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T05-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6602,9 +6626,15 @@
               "过度转人工",
               "说了却没做"
             ],
-            "run_ids": [
-              "T02-v1-1",
-              "T02-v1-2"
+            "runs": [
+              {
+                "run_id": "T02-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T02-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6616,9 +6646,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T02-v2-1",
-              "T02-v2-2"
+            "runs": [
+              {
+                "run_id": "T02-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T02-v2-2",
+                "success": true
+              }
             ]
           }
         },
@@ -6654,9 +6690,15 @@
             "kind_labels": [
               "没有动作"
             ],
-            "run_ids": [
-              "T06-v1-1",
-              "T06-v1-2"
+            "runs": [
+              {
+                "run_id": "T06-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T06-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6668,9 +6710,15 @@
             "kind_labels": [
               "说了却没做"
             ],
-            "run_ids": [
-              "T06-v2-1",
-              "T06-v2-2"
+            "runs": [
+              {
+                "run_id": "T06-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T06-v2-2",
+                "success": true
+              }
             ]
           }
         },
@@ -6706,9 +6754,15 @@
               "过度转人工",
               "只问不做"
             ],
-            "run_ids": [
-              "T07-v1-1",
-              "T07-v1-2"
+            "runs": [
+              {
+                "run_id": "T07-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T07-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6720,9 +6774,15 @@
             "kind_labels": [
               "说了却没做"
             ],
-            "run_ids": [
-              "T07-v2-1",
-              "T07-v2-2"
+            "runs": [
+              {
+                "run_id": "T07-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T07-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6758,9 +6818,15 @@
             "kind_labels": [
               "只问不做"
             ],
-            "run_ids": [
-              "T10-v1-1",
-              "T10-v1-2"
+            "runs": [
+              {
+                "run_id": "T10-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T10-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6772,9 +6838,15 @@
             "kind_labels": [
               "说了却没做"
             ],
-            "run_ids": [
-              "T10-v2-1",
-              "T10-v2-2"
+            "runs": [
+              {
+                "run_id": "T10-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T10-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6808,9 +6880,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T08-v1-1",
-              "T08-v1-2"
+            "runs": [
+              {
+                "run_id": "T08-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T08-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6822,9 +6900,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T08-v2-1",
-              "T08-v2-2"
+            "runs": [
+              {
+                "run_id": "T08-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T08-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6858,9 +6942,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T12-v1-1",
-              "T12-v1-2"
+            "runs": [
+              {
+                "run_id": "T12-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T12-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6872,9 +6962,15 @@
             "kind_labels": [
               "过度转人工"
             ],
-            "run_ids": [
-              "T12-v2-1",
-              "T12-v2-2"
+            "runs": [
+              {
+                "run_id": "T12-v2-1",
+                "success": false
+              },
+              {
+                "run_id": "T12-v2-2",
+                "success": false
+              }
             ]
           }
         },
@@ -6910,9 +7006,15 @@
               "只问不做",
               "说了却没做"
             ],
-            "run_ids": [
-              "T01-v1-1",
-              "T01-v1-2"
+            "runs": [
+              {
+                "run_id": "T01-v1-1",
+                "success": false
+              },
+              {
+                "run_id": "T01-v1-2",
+                "success": false
+              }
             ]
           },
           "v2": {
@@ -6920,9 +7022,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T01-v2-1",
-              "T01-v2-2"
+            "runs": [
+              {
+                "run_id": "T01-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T01-v2-2",
+                "success": true
+              }
             ]
           }
         },
@@ -6950,9 +7058,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T03-v1-1",
-              "T03-v1-2"
+            "runs": [
+              {
+                "run_id": "T03-v1-1",
+                "success": true
+              },
+              {
+                "run_id": "T03-v1-2",
+                "success": true
+              }
             ]
           },
           "v2": {
@@ -6960,9 +7074,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T03-v2-1",
-              "T03-v2-2"
+            "runs": [
+              {
+                "run_id": "T03-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T03-v2-2",
+                "success": true
+              }
             ]
           }
         },
@@ -6984,9 +7104,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T09-v1-1",
-              "T09-v1-2"
+            "runs": [
+              {
+                "run_id": "T09-v1-1",
+                "success": true
+              },
+              {
+                "run_id": "T09-v1-2",
+                "success": true
+              }
             ]
           },
           "v2": {
@@ -6994,9 +7120,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T09-v2-1",
-              "T09-v2-2"
+            "runs": [
+              {
+                "run_id": "T09-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T09-v2-2",
+                "success": true
+              }
             ]
           }
         },
@@ -7018,9 +7150,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T11-v1-1",
-              "T11-v1-2"
+            "runs": [
+              {
+                "run_id": "T11-v1-1",
+                "success": true
+              },
+              {
+                "run_id": "T11-v1-2",
+                "success": true
+              }
             ]
           },
           "v2": {
@@ -7028,9 +7166,15 @@
             "total": 2,
             "kinds": [],
             "kind_labels": [],
-            "run_ids": [
-              "T11-v2-1",
-              "T11-v2-2"
+            "runs": [
+              {
+                "run_id": "T11-v2-1",
+                "success": true
+              },
+              {
+                "run_id": "T11-v2-2",
+                "success": true
+              }
             ]
           }
         },

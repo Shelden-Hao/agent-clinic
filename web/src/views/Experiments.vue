@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api, type Experiments as ExpData, type ExpRow } from "../api";
+import { api, type CompareResult, type Experiments as ExpData, type ExpRow } from "../api";
 import { go } from "../router";
 
 const data = ref<ExpData | null>(null);
 const error = ref<string | null>(null);
 const open = ref<string | null>(null);
+
+/** 并排对比：当前正在看的那一对轨迹 */
+const cmp = ref<CompareResult | null>(null);
+const cmpTask = ref<string | null>(null);
+const cmpBusy = ref(false);
 
 onMounted(async () => {
   try {
@@ -45,11 +50,57 @@ function tone(v: string): string {
 }
 
 function cell(row: ExpRow, v: string) {
-  return row.cells[v] ?? { ok: 0, total: 0, kinds: [], run_ids: [] };
+  return row.cells[v] ?? { ok: 0, total: 0, kinds: [], kind_labels: [], runs: [] };
 }
 
 function toggle(id: string) {
   open.value = open.value === id ? null : id;
+  if (open.value !== id) {
+    cmp.value = null;
+    cmpTask.value = null;
+  }
+}
+
+/** 从一格里挑一条轨迹：优先要成功/失败的，没有再退而求其次 */
+function pick(row: ExpRow, v: string, wantSuccess: boolean): string | null {
+  const runs = cell(row, v).runs ?? [];
+  return (runs.find((r) => r.success === wantSuccess) ?? runs[0])?.run_id ?? null;
+}
+
+/** 对比默认这样挑：基线里一条成功的，对候选里一条失败的。
+ *  反过来的情况（这版反而修好了）也支持，选不到就退而求其次。 */
+async function runCompare(row: ExpRow) {
+  const b = pick(row, base.value, true) ?? pick(row, base.value, false);
+  const c = pick(row, cand.value || base.value, false) ?? pick(row, cand.value || base.value, true);
+  if (!b || !c || b === c) return;
+  cmpBusy.value = true;
+  cmpTask.value = row.task_id;
+  try {
+    cmp.value = await api.compare(b, c);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    cmpBusy.value = false;
+  }
+}
+
+/** 分叉点用「第一条两边不一致的行」，而不是「第一条只出现在右边的行」。
+ *  后者在 LCS 把中间某步对齐到前面时，会落到一个看起来不太像分叉的位置上。 */
+const diverge = computed(() => {
+  const rows = cmp.value?.rows ?? [];
+  const i = rows.findIndex((r) => r.relation !== "same");
+  if (i < 0) return null;
+  const r = rows[i];
+  return { index: i, step: r.left?.step_index ?? r.right?.step_index ?? null };
+});
+
+function brief(s: { tool?: string | null; args?: Record<string, unknown>; content?: string; kind: string } | null) {
+  if (!s) return "—";
+  if (s.kind === "tool_call") {
+    const keys = Object.keys(s.args || {});
+    return `${s.tool}(${keys.join(", ")})`;
+  }
+  return (s.content || "").slice(0, 60) || s.kind;
 }
 </script>
 
@@ -176,21 +227,71 @@ function toggle(id: string) {
                     <div v-for="v in versions" :key="v" class="dgroup">
                       <div class="dlabel mono">{{ v }}</div>
                       <a
-                        v-for="id in cell(row, v).run_ids"
-                        :key="id"
+                        v-for="r in cell(row, v).runs"
+                        :key="r.run_id"
                         class="drun mono"
-                        :href="'#/runs/' + encodeURIComponent(id)"
-                        @click.stop="go('/runs/' + id)"
+                        :class="{ bad: !r.success }"
+                        :href="'#/runs/' + encodeURIComponent(r.run_id)"
+                        @click.stop="go('/runs/' + r.run_id)"
                       >
-                        {{ id }}
+                        <i class="spip" :class="{ on: r.success }"></i>{{ r.run_id }}
                       </a>
-                      <div v-if="!cell(row, v).run_ids.length" class="empty">没有轨迹</div>
+                      <div v-if="!cell(row, v).runs.length" class="empty">没有轨迹</div>
                     </div>
                   </div>
                   <p v-if="row.from_kinds.length && row.to_kinds.length && row.from_kinds[0] !== row.to_kinds[0]" class="dnote">
                     死因从「{{ row.from_labels[0] }}」换成了「{{ row.to_labels[0] }}」——
                     它始终是失败，只是失败的理由变了。
                   </p>
+                  <div class="dacts">
+                    <button class="btn tiny" :disabled="cmpBusy" @click.stop="runCompare(row)">
+                      {{ cmpBusy && cmpTask === row.task_id ? "正在对齐…" : "对比这两版差在哪一步" }}
+                    </button>
+                  </div>
+
+                  <!-- 并排对齐结果 -->
+                  <div v-if="cmp && cmpTask === row.task_id" class="cmpbox">
+                    <div class="cmphead">
+                      <div class="cmpcol">
+                        <span class="cmptag mono">{{ cmp.a.version }}</span>
+                        <span class="cmprun mono">{{ cmp.a.run_id }}</span>
+                        <span class="tag" :class="cmp.a.success ? 'ok' : 'bad'">
+                          {{ cmp.a.success ? "成功" : cmp.a.kind_label }}
+                        </span>
+                      </div>
+                      <div class="cmpvs mono">对齐</div>
+                      <div class="cmpcol right">
+                        <span class="cmptag mono">{{ cmp.b.version }}</span>
+                        <span class="cmprun mono">{{ cmp.b.run_id }}</span>
+                        <span class="tag" :class="cmp.b.success ? 'ok' : 'bad'">
+                          {{ cmp.b.success ? "成功" : cmp.b.kind_label }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div v-for="(r, i) in cmp.rows" :key="i" class="cmprow" :class="[r.relation, { fork: diverge && diverge.index === i }]">
+                      <div class="cs">
+                        <span v-if="r.left" class="cskill mono">{{ brief(r.left) }}</span>
+                        <span v-else class="csnone mono">—</span>
+                      </div>
+                      <div class="cgap mono">{{ r.relation === "same" ? "=" : r.relation === "only_left" ? "◀" : "▶" }}</div>
+                      <div class="cs">
+                        <span v-if="r.right" class="cskill mono">{{ brief(r.right) }}</span>
+                        <span v-else class="csnone mono">—</span>
+                      </div>
+                    </div>
+
+                    <p class="cmpfoot">
+                      <template v-if="diverge">
+                        从第 <b>{{ diverge.step }}</b> 步开始，两条路径不再一致（高亮行）。
+                        之后每一处单边动作，都是两个版本做出的不同选择。
+                      </template>
+                      <template v-else>
+                        两条路径的调用结构完全一致 —— 差别只在参数或返回结果里，不在「做了什么」。
+                      </template>
+                      {{ cmp.note }}
+                    </p>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -333,6 +434,31 @@ h1 { font-size: 23px; margin: 0 0 8px; letter-spacing: 0.3px; font-weight: 600; 
 }
 .drun:hover { color: #9de6df; }
 .dnote { margin: 14px 0 0; font-size: 12.5px; color: var(--c-warn, #e0a34a); }
+.drun.bad { color: #c9757a; }
+.spip { width: 5px; height: 5px; border-radius: 999px; background: var(--red); display: inline-block; margin-right: 6px; }
+.spip.on { background: var(--green); }
+.dacts { margin-top: 14px; }
+
+/* 并排对齐 */
+.cmpbox { margin-top: 16px; padding-top: 16px; border-top: 1px dashed #1e262d; }
+.cmphead { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cmpcol { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.cmpcol.right { justify-content: flex-end; }
+.cmptag { font-size: 10px; color: var(--dim); border: 1px solid var(--line-2); padding: 3px 6px; border-radius: 3px; }
+.cmprun { font-size: 11.5px; color: var(--muted); }
+.cmpvs { font-size: 9.5px; color: var(--dim); letter-spacing: 1px; }
+.cmprow { display: grid; grid-template-columns: 1fr 28px 1fr; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 5px; font-size: 11.5px; }
+.cmprow + .cmprow { margin-top: 2px; }
+.cmprow.same { background: transparent; }
+.cmprow.only_left, .cmprow.only_right { background: #12181d; }
+.cmprow.fork { background: #1d1012; outline: 1px solid #4a2226; }
+.cs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cskill { color: var(--muted); }
+.cmprow.fork .cskill { color: #ffb3b7; }
+.csnone { color: #2f3942; }
+.cgap { text-align: center; color: var(--dim); font-size: 10px; }
+.cmpfoot { margin: 14px 0 0; font-size: 11.5px; color: var(--dim); line-height: 1.7; }
+.cmpfoot b { color: var(--c-warn, #e0a34a); }
 
 /* 迁移 */
 .mig { padding: 8px 20px; }

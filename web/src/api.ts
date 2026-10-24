@@ -291,7 +291,8 @@ export interface ExpCell {
   kinds: string[];
   /** 中文病名，用来显示 —— 别把 over_escalation 印在界面上 */
   kind_labels: string[];
-  run_ids: string[];
+  /** 这一格里的每条轨迹及其结局，用来挑两条做并排对比 */
+  runs: { run_id: string; success: boolean }[];
 }
 
 export interface ExpRow {
@@ -402,6 +403,32 @@ export interface ReviewQueue {
   caveat: string;
 }
 
+export interface CompareSide {
+  run_id: string;
+  task_id: string;
+  version: string;
+  success: boolean;
+  steps: number;
+  tokens: number;
+  kind: string;
+  kind_label: string;
+  diagnosis: Diagnosis;
+}
+
+export interface CompareResult {
+  task_id: string;
+  good_run: string;
+  bad_run: string;
+  fork_at: number | null;
+  rows: ForkRow[];
+  length_good: number;
+  length_bad: number;
+  a: CompareSide;
+  b: CompareSide;
+  same_task: boolean;
+  note: string;
+}
+
 async function jget<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`接口异常 ${res.status}：${url}`);
@@ -446,6 +473,10 @@ export const api = {
     jsend<RegressionVerify>("/api/regression/verify", { text, format }),
 
   experiments: () => jget<Experiments>("/api/experiments"),
+
+  /** 任意两条轨迹逐决策对齐 —— 用来看「这一版把哪一步改坏了」 */
+  compare: (a: string, b: string) =>
+    jget<CompareResult>(`/api/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`),
 
   /** statsOnly 只取统计，不拉几十条明细 —— 概览页只需要知道「有几条等签字」 */
   reviewQueue: (statsOnly = false) =>

@@ -326,7 +326,8 @@ def compare(runs: list[Run], diagnoses: dict[str, Any], version_rows: list[dict]
                 "kinds": ks,
                 # 界面上要显示病名本身，而不是 over_escalation 这种内部 key
                 "kind_labels": [kind_label(k) for k in ks],
-                "run_ids": [r.run_id for r in vr],
+                # 连每一条的结局一起带上：界面上要能直接挑「一条成功的 vs 一条失败的」去对比
+                "runs": [{"run_id": r.run_id, "success": r.success} for r in vr],
             }
 
         rows.append(

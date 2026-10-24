@@ -25,13 +25,14 @@ from fastapi.staticfiles import StaticFiles
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from analysis.align import align_runs  # noqa: E402
 from analysis.diagnose import diagnose  # noqa: E402
 from analysis.evaluate import EvalConfig, evaluate  # noqa: E402
 from analysis.ingest import FORMATS, ingest, ingest_jsonl, roundtrip_stats  # noqa: E402
 from analysis.minimize import minimize  # noqa: E402
 from analysis.regress import verify  # noqa: E402
 from analysis.review import build_queue, verify_review  # noqa: E402
-from analysis.trace import run_from_dict  # noqa: E402
+from analysis.trace import kind_label, run_from_dict  # noqa: E402
 
 DATA_DIR = ROOT / "data"
 STATIC_DIR = ROOT / "server" / "static"
@@ -263,6 +264,58 @@ def create_app() -> FastAPI:
                 "diagnosis": diag.to_dict(),
                 "minimal": mini,
                 "evaluation": ev,
+            }
+        )
+
+    # ── 任意两条轨迹并排对比 ────────────────────────────────────────────────
+    @app.get("/api/compare")
+    def compare_runs(a: str, b: str) -> JSONResponse:
+        """把任意两条轨迹逐决策对齐。
+
+        和 `report.fork` 的区别：那个是预先挑好的「最像的一对」，用来说明算法能做什么；
+        这个是**你想看哪两条就看哪两条** —— 通常是一条 v1 成功 + 一条 v2 失败，
+        用来回答「这一版到底把哪一步改坏了」。
+
+        刻意不限制必须同任务、同结局：跨任务对比虽然少见，
+        但「两条轨迹结构一模一样、结局不同」这种情况本身就是有用的信息。
+        """
+        raw = {r.get("run_id"): r for r in _corpus_runs()}
+        missing = [x for x in (a, b) if x not in raw]
+        if missing:
+            raise HTTPException(status_code=404, detail=f"未找到轨迹 {'、'.join(missing)}")
+        if a == b:
+            raise HTTPException(status_code=400, detail="两条轨迹不能是同一条")
+
+        expects = _task_expects()
+        run_a, diag_a, _, _ = _diagnose_dict(raw[a], expects)
+        run_b, diag_b, _, _ = _diagnose_dict(raw[b], expects)
+
+        aligned = align_runs(run_a, run_b)
+
+        def side(run, diag):
+            return {
+                "run_id": run.run_id,
+                "task_id": run.task_id,
+                "version": run.prompt_version,
+                "success": run.success,
+                "steps": len(run.tool_steps),
+                "tokens": int(run.usage.get("total_tokens") or 0),
+                "kind": diag.kind,
+                "kind_label": kind_label(diag.kind),
+                "diagnosis": diag.to_dict(),
+            }
+
+        return JSONResponse(
+            {
+                **aligned,
+                "a": side(run_a, diag_a),
+                "b": side(run_b, diag_b),
+                "same_task": run_a.task_id == run_b.task_id,
+                "note": (
+                    "对齐用的是决策签名（工具名 + 参数键），不含参数值 —— "
+                    "参数值会被最小化改写，签名才是结构。"
+                    "所以「参数不同」不会显示成一次分叉，只有「调用结构不同」才是。"
+                ),
             }
         )
 

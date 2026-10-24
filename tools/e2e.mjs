@@ -93,6 +93,13 @@ await page.locator("tr.mrow").first().click();
 await page.waitForTimeout(500);
 check("点行可展开轨迹", (await page.locator("a.drun").count()) > 0);
 check("展开后给出死因变化", /死因从|换个病名/.test(await bodyText()));
+
+// 并排对比：从「哪个任务坏了」下钻到「差在哪一步」
+await page.locator(".dacts button").first().click();
+await page.waitForTimeout(1100);
+check("并排对齐出结果", (await page.locator(".cmprow").count()) >= 4, `${await page.locator(".cmprow").count()} 行`);
+check("标出分叉步或说明结构一致", /两条路径不再一致|调用结构完全一致/.test(await bodyText()));
+check("对比区标注了口径", (await bodyText()).includes("决策签名"));
 await page.screenshot({ path: `${outDir}/experiments.png`, fullPage: true });
 
 // ── 5. 复核队列（含真实签字流程） ──
