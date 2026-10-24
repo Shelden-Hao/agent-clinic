@@ -282,12 +282,131 @@ export interface RegressionVerify {
   summary: string;
 }
 
+/** 实验矩阵的一格。刻意保留「几次通过 / 共几次」，不压成 0/1 ——
+ *  一个任务跑两次过一次不过，和跑两次都挂，失败率只差 0.5，性质完全不同。 */
+export interface ExpCell {
+  ok: number;
+  total: number;
+  /** 内部病种 key，用来做逻辑判断 */
+  kinds: string[];
+  /** 中文病名，用来显示 —— 别把 over_escalation 印在界面上 */
+  kind_labels: string[];
+  run_ids: string[];
+}
+
+export interface ExpRow {
+  task_id: string;
+  prompt: string;
+  cells: Record<string, ExpCell>;
+  from_kinds: string[];
+  to_kinds: string[];
+  from_labels: string[];
+  to_labels: string[];
+  verdict: string;
+  verdict_label: string;
+  severity: number;
+  /** 某个版本内既没全过也没全挂 —— 这个任务在掷骰子 */
+  fragile: boolean;
+}
+
+export interface Experiments {
+  ready: boolean;
+  baseline: string;
+  candidate: string | null;
+  versions: string[];
+  version_rows: {
+    version: string;
+    total: number;
+    failed: number;
+    fail_rate: number;
+    tokens: number;
+    avg_steps: number;
+  }[];
+  rows: ExpRow[];
+  stability: Record<string, { stable_ok: number; stable_bad: number; flaky: number }>;
+  migration: {
+    changed: number;
+    items: { task_id: string; from: string; to: string; from_label: string; to_label: string }[];
+    inflow: { kind: string; label: string; tasks: string[]; count: number }[];
+    top: { kind: string; label: string; tasks: string[]; count: number } | null;
+    note: string;
+  };
+  narrative: {
+    headline: string;
+    detail: string;
+    stability: string;
+    migration: string;
+    counts: Record<string, number>;
+    delta_pt: number | null;
+    flaky_delta: number | null;
+    stable_bad_delta: number | null;
+  };
+  caveat: string;
+  generated_at?: string;
+}
+
+export interface ReviewPeer {
+  run_id: string;
+  success: boolean;
+  steps: number;
+  kind: string | null;
+  label: string | null;
+}
+
+export interface ReviewRecord {
+  action: string;
+  kind: string | null;
+  note: string;
+  reviewer: string;
+  at: string;
+  original_kind?: string;
+  original_confidence?: number;
+}
+
+export interface ReviewItem {
+  run_id: string;
+  task_id: string;
+  version: string;
+  task_prompt: string;
+  steps: number;
+  machine: {
+    kind: string;
+    label: string;
+    step_index: number;
+    evidence: string;
+    confidence: number;
+  };
+  signals: string[];
+  signal_labels: string[];
+  hints: string[];
+  peers: ReviewPeer[];
+  review: ReviewRecord | null;
+  status: "pending" | "resolved";
+}
+
+export interface ReviewQueue {
+  ready: boolean;
+  total_failed: number;
+  queued: number;
+  pending: number;
+  resolved: number;
+  actions: Record<string, number>;
+  actions_label: Record<string, string>;
+  signal_label: Record<string, string>;
+  confidence_floor: number;
+  items?: ReviewItem[];
+  before: { kind: string; label: string; count: number }[];
+  after: { kind: string; label: string; count: number }[];
+  after_failed: number;
+  changed: boolean;
+  caveat: string;
+}
+
 async function jget<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`接口异常 ${res.status}：${url}`);
   return res.json();
 }
-
 async function jsend<T>(url: string, body: unknown, method = "POST"): Promise<T> {
   const res = await fetch(url, {
     method,
@@ -325,4 +444,17 @@ export const api = {
   /** 传入 text 表示用现场轨迹验收；不传则用仓库内已有轨迹 */
   verifyRegression: (text = "", format = "auto") =>
     jsend<RegressionVerify>("/api/regression/verify", { text, format }),
+
+  experiments: () => jget<Experiments>("/api/experiments"),
+
+  /** statsOnly 只取统计，不拉几十条明细 —— 概览页只需要知道「有几条等签字」 */
+  reviewQueue: (statsOnly = false) =>
+    jget<ReviewQueue>(`/api/review${statsOnly ? "?stats_only=1" : ""}`),
+  submitReview: (runId: string, record: Partial<ReviewRecord>) =>
+    jsend<{ ok: boolean; run_id: string; review: ReviewRecord; total: number }>(
+      `/api/review/${encodeURIComponent(runId)}`,
+      record,
+    ),
+  cancelReview: (runId: string) =>
+    jsend<{ ok: boolean; total: number }>(`/api/review/${encodeURIComponent(runId)}`, null, "DELETE"),
 };

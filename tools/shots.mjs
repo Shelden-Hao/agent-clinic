@@ -15,10 +15,12 @@ const outDir = process.argv[3] || "runtime/shots";
 
 const ROUTES = [
   { name: "01-overview", hash: "#/" },
-  { name: "02-explorer", hash: "#/runs" },
-  { name: "03-run-detail", hash: "#/runs/T02-v1-1" },
-  { name: "04-patterns", hash: "#/patterns" },
-  { name: "05-intake", hash: "#/intake" },
+  { name: "02-experiments", hash: "#/experiments" },
+  { name: "03-explorer", hash: "#/runs" },
+  { name: "04-run-detail", hash: "#/runs/T02-v1-1" },
+  { name: "05-patterns", hash: "#/patterns" },
+  { name: "06-review", hash: "#/review" },
+  { name: "07-intake", hash: "#/intake" },
 ];
 
 await fs.mkdir(outDir, { recursive: true });

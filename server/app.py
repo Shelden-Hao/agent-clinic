@@ -16,6 +16,7 @@ import platform
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -29,6 +30,7 @@ from analysis.evaluate import EvalConfig, evaluate  # noqa: E402
 from analysis.ingest import FORMATS, ingest, ingest_jsonl, roundtrip_stats  # noqa: E402
 from analysis.minimize import minimize  # noqa: E402
 from analysis.regress import verify  # noqa: E402
+from analysis.review import build_queue, verify_review  # noqa: E402
 from analysis.trace import run_from_dict  # noqa: E402
 
 DATA_DIR = ROOT / "data"
@@ -36,8 +38,9 @@ STATIC_DIR = ROOT / "server" / "static"
 RUNTIME_DIR = ROOT / "runtime"
 SAMPLES_DIR = DATA_DIR / "samples"
 REGRESSION = DATA_DIR / "regression.json"
+REVIEWS = DATA_DIR / "reviews.json"
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 MAX_INTAKE_BYTES = 4 * 1024 * 1024
 MAX_INTAKE_RUNS = 60
 
@@ -85,6 +88,30 @@ def _diagnose_dict(raw: dict, expects: dict[str, dict]):
     return run, diag, mini, evaluate(run)
 
 
+def _report_diagnoses() -> dict[str, SimpleNamespace]:
+    """复用报告里已算好的诊断。
+
+    复核队列不该重新跑一遍归因 —— 那会让「复核的对象」和「报告里的结论」
+    有可能不是同一条。复核的必须是用户看到的那一条，否则签字没有意义。
+    """
+    report = _load_json_name("report.json")
+    if not isinstance(report, dict):
+        return {}
+    return {k: SimpleNamespace(**v) for k, v in (report.get("diagnoses") or {}).items()}
+
+
+def _corpus_run_objs() -> list:
+    expects = _task_expects()
+    out = []
+    for raw in _corpus_runs():
+        run = run_from_dict(raw)
+        if not run.expected:
+            run.expected = dict(expects.get(run.task_id) or {})
+        run.expectation_missing = not bool(run.expected)
+        out.append(run)
+    return out
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Agent 会诊室",
@@ -126,6 +153,21 @@ def create_app() -> FastAPI:
         if not isinstance(report, dict):
             raise HTTPException(status_code=503, detail="报告尚未编译")
         return JSONResponse(report.get("catalog") or {})
+
+    @app.get("/api/experiments")
+    def experiments() -> JSONResponse:
+        """逐任务的实验矩阵。
+
+        版本汇总只有两行失败率，容易被总分掩盖真相。这里把同一批任务摊开：
+        哪个被修好、哪个被弄坏、哪个从「确定失败」变成了「抛硬币」。
+        """
+        report = _load_json_name("report.json")
+        if not isinstance(report, dict):
+            raise HTTPException(status_code=503, detail="报告尚未编译")
+        exp = report.get("experiment")
+        if not isinstance(exp, dict) or not exp.get("ready"):
+            raise HTTPException(status_code=503, detail="实验矩阵尚未编译")
+        return JSONResponse({**exp, "generated_at": report.get("generated_at")})
 
     @app.get("/api/runs")
     def list_runs(
@@ -413,6 +455,74 @@ def create_app() -> FastAPI:
 
         result = verify(cases, runs)
         return JSONResponse(result)
+
+    # ── 复核队列：机器判不准的，等人签字 ────────────────────────────────────
+    def _read_reviews() -> dict[str, dict]:
+        data = _load_json(REVIEWS)
+        return data.get("reviews", {}) if isinstance(data, dict) else {}
+
+    def _write_reviews(reviews: dict[str, dict]) -> None:
+        REVIEWS.parent.mkdir(parents=True, exist_ok=True)
+        REVIEWS.write_text(
+            json.dumps(
+                {
+                    "updated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                    "reviews": reviews,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    @app.get("/api/review")
+    def review_queue(stats_only: bool = False) -> JSONResponse:
+        """待复核队列 + 复核前后对照。
+
+        `stats_only=1` 只回统计，给概览页用，省掉几十条明细。
+        """
+        diags = _report_diagnoses()
+        if not diags:
+            raise HTTPException(status_code=503, detail="报告尚未编译")
+        out = build_queue(_corpus_run_objs(), diags, _read_reviews())
+        if stats_only:
+            out.pop("items", None)
+        return JSONResponse(out)
+
+    @app.post("/api/review/{run_id}")
+    def submit_review(run_id: str, payload: dict = Body(...)) -> JSONResponse:
+        """提交一条复核意见：确认 / 改判 / 驳回。
+
+        改判必须写理由 —— 它是唯一会改写报告结论的动作。
+        """
+        diags = _report_diagnoses()
+        diag = diags.get(run_id)
+        if diag is None:
+            raise HTTPException(status_code=404, detail=f"{run_id} 不是一条已判定的失败轨迹")
+
+        report = _load_json_name("report.json") or {}
+        allowed = {k["kind"] for k in (report.get("catalog") or {}).get("kinds", [])}
+        try:
+            rec = verify_review(payload, allowed)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+        # 记下机器原判。复核记录要能自证「改的是哪一条、从什么改成了什么」，
+        # 否则过几个月把病种表改了，这条记录就再也读不懂了。
+        rec["original_kind"] = diag.kind
+        rec["original_confidence"] = round(diag.confidence, 2)
+
+        reviews = _read_reviews()
+        reviews[run_id] = rec
+        _write_reviews(reviews)
+        return JSONResponse({"ok": True, "run_id": run_id, "review": rec, "total": len(reviews)})
+
+    @app.delete("/api/review/{run_id}")
+    def cancel_review(run_id: str) -> JSONResponse:
+        reviews = _read_reviews()
+        reviews.pop(run_id, None)
+        _write_reviews(reviews)
+        return JSONResponse({"ok": True, "total": len(reviews)})
 
     # ── 采集台：浏览器端真实跑 Agent，每一步回收到这里 ──────────────────────
     @app.get("/api/lab/bootstrap")

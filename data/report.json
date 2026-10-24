@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-24T23:27:30+08:00",
-  "report_version": "0.3.0",
+  "generated_at": "2026-10-24T23:48:01+08:00",
+  "report_version": "0.4.0",
   "summary": {
     "total": 48,
     "failed": 27,
@@ -6467,5 +6467,676 @@
     "imported": [
       "native"
     ]
+  },
+  "experiment": {
+    "ready": true,
+    "baseline": "v1",
+    "candidate": "v2",
+    "versions": [
+      "v1",
+      "v2"
+    ],
+    "version_rows": [
+      {
+        "version": "v1",
+        "total": 24,
+        "failed": 15,
+        "fail_rate": 0.625,
+        "tokens": 92406,
+        "avg_steps": 4.6
+      },
+      {
+        "version": "v2",
+        "total": 24,
+        "failed": 12,
+        "fail_rate": 0.5,
+        "tokens": 121250,
+        "avg_steps": 4.2
+      }
+    ],
+    "rows": [
+      {
+        "task_id": "T04",
+        "prompt": "A1027 这个支架我不要了，钱怎么还没退给我？",
+        "cells": {
+          "v1": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T04-v1-1",
+              "T04-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T04-v2-1",
+              "T04-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [],
+        "to_kinds": [
+          "over_escalation"
+        ],
+        "from_labels": [],
+        "to_labels": [
+          "过度转人工"
+        ],
+        "verdict": "regressed",
+        "verdict_label": "弄坏了",
+        "severity": -3,
+        "fragile": false
+      },
+      {
+        "task_id": "T05",
+        "prompt": "充电宝 A1028 退过一次了，剩下那部分也退了吧。",
+        "cells": {
+          "v1": {
+            "ok": 1,
+            "total": 2,
+            "kinds": [
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T05-v1-1",
+              "T05-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T05-v2-1",
+              "T05-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "promised_but_not_done"
+        ],
+        "to_kinds": [
+          "over_escalation"
+        ],
+        "from_labels": [
+          "说了却没做"
+        ],
+        "to_labels": [
+          "过度转人工"
+        ],
+        "verdict": "worse",
+        "verdict_label": "更糟了",
+        "severity": -2,
+        "fragile": true
+      },
+      {
+        "task_id": "T02",
+        "prompt": "A1025 这个键盘我改主意了，还没到货，帮我退了吧。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation",
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "过度转人工",
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T02-v1-1",
+              "T02-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 1,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T02-v2-1",
+              "T02-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "over_escalation",
+          "promised_but_not_done"
+        ],
+        "to_kinds": [
+          "over_escalation"
+        ],
+        "from_labels": [
+          "过度转人工",
+          "说了却没做"
+        ],
+        "to_labels": [
+          "过度转人工"
+        ],
+        "verdict": "flaky_improved",
+        "verdict_label": "变好了，但不稳",
+        "severity": -1,
+        "fragile": true
+      },
+      {
+        "task_id": "T06",
+        "prompt": "椅子 A1029 坐着腰疼，全额退，运费也退。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "no_action"
+            ],
+            "kind_labels": [
+              "没有动作"
+            ],
+            "run_ids": [
+              "T06-v1-1",
+              "T06-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 1,
+            "total": 2,
+            "kinds": [
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T06-v2-1",
+              "T06-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "no_action"
+        ],
+        "to_kinds": [
+          "promised_but_not_done"
+        ],
+        "from_labels": [
+          "没有动作"
+        ],
+        "to_labels": [
+          "说了却没做"
+        ],
+        "verdict": "flaky_improved",
+        "verdict_label": "变好了，但不稳",
+        "severity": -1,
+        "fragile": true
+      },
+      {
+        "task_id": "T07",
+        "prompt": "扩展坞 A1030 还在路上，我不想要了。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation",
+              "asked_instead_of_acted"
+            ],
+            "kind_labels": [
+              "过度转人工",
+              "只问不做"
+            ],
+            "run_ids": [
+              "T07-v1-1",
+              "T07-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 1,
+            "total": 2,
+            "kinds": [
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T07-v2-1",
+              "T07-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "over_escalation",
+          "asked_instead_of_acted"
+        ],
+        "to_kinds": [
+          "promised_but_not_done"
+        ],
+        "from_labels": [
+          "过度转人工",
+          "只问不做"
+        ],
+        "to_labels": [
+          "说了却没做"
+        ],
+        "verdict": "flaky_improved",
+        "verdict_label": "变好了，但不稳",
+        "severity": -1,
+        "fragile": true
+      },
+      {
+        "task_id": "T10",
+        "prompt": "音箱 A1033 音质太差，我要退全款。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "asked_instead_of_acted"
+            ],
+            "kind_labels": [
+              "只问不做"
+            ],
+            "run_ids": [
+              "T10-v1-1",
+              "T10-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 1,
+            "total": 2,
+            "kinds": [
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T10-v2-1",
+              "T10-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "asked_instead_of_acted"
+        ],
+        "to_kinds": [
+          "promised_but_not_done"
+        ],
+        "from_labels": [
+          "只问不做"
+        ],
+        "to_labels": [
+          "说了却没做"
+        ],
+        "verdict": "flaky_improved",
+        "verdict_label": "变好了，但不稳",
+        "severity": -1,
+        "fragile": true
+      },
+      {
+        "task_id": "T08",
+        "prompt": "显示器 A1031 有坏点，退了。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T08-v1-1",
+              "T08-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T08-v2-1",
+              "T08-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "over_escalation"
+        ],
+        "to_kinds": [
+          "over_escalation"
+        ],
+        "from_labels": [
+          "过度转人工"
+        ],
+        "to_labels": [
+          "过度转人工"
+        ],
+        "verdict": "stable_bad",
+        "verdict_label": "一直坏着",
+        "severity": 0,
+        "fragile": false
+      },
+      {
+        "task_id": "T12",
+        "prompt": "背包 A1035 用了两周肩带开线，退了吧。",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T12-v1-1",
+              "T12-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "over_escalation"
+            ],
+            "kind_labels": [
+              "过度转人工"
+            ],
+            "run_ids": [
+              "T12-v2-1",
+              "T12-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "over_escalation"
+        ],
+        "to_kinds": [
+          "over_escalation"
+        ],
+        "from_labels": [
+          "过度转人工"
+        ],
+        "to_labels": [
+          "过度转人工"
+        ],
+        "verdict": "stable_bad",
+        "verdict_label": "一直坏着",
+        "severity": 0,
+        "fragile": false
+      },
+      {
+        "task_id": "T01",
+        "prompt": "我买的降噪耳机（订单 A1024）戴着夹耳朵，不想要了，能退款吗？",
+        "cells": {
+          "v1": {
+            "ok": 0,
+            "total": 2,
+            "kinds": [
+              "asked_instead_of_acted",
+              "promised_but_not_done"
+            ],
+            "kind_labels": [
+              "只问不做",
+              "说了却没做"
+            ],
+            "run_ids": [
+              "T01-v1-1",
+              "T01-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T01-v2-1",
+              "T01-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [
+          "asked_instead_of_acted",
+          "promised_but_not_done"
+        ],
+        "to_kinds": [],
+        "from_labels": [
+          "只问不做",
+          "说了却没做"
+        ],
+        "to_labels": [],
+        "verdict": "fixed",
+        "verdict_label": "修好了",
+        "severity": 1,
+        "fragile": false
+      },
+      {
+        "task_id": "T03",
+        "prompt": "手环 A1026 用了几天不好用，我要退。",
+        "cells": {
+          "v1": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T03-v1-1",
+              "T03-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T03-v2-1",
+              "T03-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [],
+        "to_kinds": [],
+        "from_labels": [],
+        "to_labels": [],
+        "verdict": "stable_ok",
+        "verdict_label": "本来就稳",
+        "severity": 2,
+        "fragile": false
+      },
+      {
+        "task_id": "T09",
+        "prompt": "内胆包 A1032 到了但颜色不对，退款。",
+        "cells": {
+          "v1": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T09-v1-1",
+              "T09-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T09-v2-1",
+              "T09-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [],
+        "to_kinds": [],
+        "from_labels": [],
+        "to_labels": [],
+        "verdict": "stable_ok",
+        "verdict_label": "本来就稳",
+        "severity": 2,
+        "fragile": false
+      },
+      {
+        "task_id": "T11",
+        "prompt": "鼠标 A1034 刚下单，不要了，取消。",
+        "cells": {
+          "v1": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T11-v1-1",
+              "T11-v1-2"
+            ]
+          },
+          "v2": {
+            "ok": 2,
+            "total": 2,
+            "kinds": [],
+            "kind_labels": [],
+            "run_ids": [
+              "T11-v2-1",
+              "T11-v2-2"
+            ]
+          }
+        },
+        "from_kinds": [],
+        "to_kinds": [],
+        "from_labels": [],
+        "to_labels": [],
+        "verdict": "stable_ok",
+        "verdict_label": "本来就稳",
+        "severity": 2,
+        "fragile": false
+      }
+    ],
+    "stability": {
+      "v1": {
+        "stable_ok": 4,
+        "stable_bad": 7,
+        "flaky": 1
+      },
+      "v2": {
+        "stable_ok": 4,
+        "stable_bad": 4,
+        "flaky": 4
+      }
+    },
+    "migration": {
+      "changed": 4,
+      "items": [
+        {
+          "task_id": "T05",
+          "from": "promised_but_not_done",
+          "to": "over_escalation",
+          "from_label": "说了却没做",
+          "to_label": "过度转人工"
+        },
+        {
+          "task_id": "T06",
+          "from": "no_action",
+          "to": "promised_but_not_done",
+          "from_label": "没有动作",
+          "to_label": "说了却没做"
+        },
+        {
+          "task_id": "T07",
+          "from": "over_escalation",
+          "to": "promised_but_not_done",
+          "from_label": "过度转人工",
+          "to_label": "说了却没做"
+        },
+        {
+          "task_id": "T10",
+          "from": "asked_instead_of_acted",
+          "to": "promised_but_not_done",
+          "from_label": "只问不做",
+          "to_label": "说了却没做"
+        }
+      ],
+      "inflow": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "tasks": [
+            "T06",
+            "T07",
+            "T10"
+          ],
+          "count": 3
+        },
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "tasks": [
+            "T05"
+          ],
+          "count": 1
+        }
+      ],
+      "top": {
+        "kind": "promised_but_not_done",
+        "label": "说了却没做",
+        "tasks": [
+          "T06",
+          "T07",
+          "T10"
+        ],
+        "count": 3
+      },
+      "note": "4 个任务在两版之间换了死法（T05、T06、T07、T10）。失败率看不见这件事：它们始终是失败，只是失败的理由变了。其中 3 个的新死因都是「说了却没做」—— 这不是修复，这是把失败换成了更难被发现的那一种。"
+    },
+    "narrative": {
+      "headline": "真正修好了 1 个任务（T01）；把 4 个从「每次都失败」改成了「一半概率失败」（T02、T06、T07、T10）；弄坏了 1 个本来稳定通过的任务（T04）。",
+      "detail": "失败率从 62.5% 降到 50.0%，表面上是 12.5 个百分点的改善。这 12.5 个点里，有 4 个任务并没有被修好 —— 它们只是从「确定失败」变成了「随机失败」。确定的问题可以排期修，随机的问题没法排期，只能被反复重新发现。",
+      "stability": "抛硬币任务从 1 个增加到 4 个（+3）。失败率降了，不确定性反而涨了 —— 这两个数字应该一起看。",
+      "migration": "4 个任务在两版之间换了死法（T05、T06、T07、T10）。失败率看不见这件事：它们始终是失败，只是失败的理由变了。其中 3 个的新死因都是「说了却没做」—— 这不是修复，这是把失败换成了更难被发现的那一种。",
+      "counts": {
+        "regressed": 1,
+        "worse": 1,
+        "flaky_improved": 4,
+        "stable_bad": 2,
+        "fixed": 1,
+        "stable_ok": 3
+      },
+      "delta_pt": -12.5,
+      "flaky_delta": 3,
+      "stable_bad_delta": -3
+    },
+    "caveat": "每格只有很少的样本（本项目为每任务每版本 2 条）。这里给的是现象标签，不是统计显著性结论 —— 你该拿它去决定「先查哪个任务」，而不是拿它去证明「某个改动有效」。"
   }
 }

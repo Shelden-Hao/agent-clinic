@@ -19,3 +19,10 @@ _scratch/
 runtime/
 __pycache__/
 *.pyc
+
+# 前端增量编译缓存（每次构建都会变，提交它只会制造无意义的 diff）
+web/tsconfig.tsbuildinfo
+
+# 复核记录是运行时状态，不进仓库。
+# 新仓库第一次打开时队列是空的、全部待签字 —— 这本来就是正确的初始状态。
+data/reviews.json

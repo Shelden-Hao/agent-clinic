@@ -9,7 +9,7 @@
 import { computed, ref } from "vue";
 
 export interface Route {
-  name: "overview" | "runs" | "run" | "patterns" | "intake" | "notfound";
+  name: "overview" | "runs" | "run" | "patterns" | "experiments" | "review" | "intake" | "notfound";
   param?: string;
 }
 
@@ -20,6 +20,8 @@ function parse(hash: string): Route {
   if (seg[0] === "runs" && seg[1]) return { name: "run", param: decodeURIComponent(seg[1]) };
   if (seg[0] === "runs") return { name: "runs" };
   if (seg[0] === "patterns") return { name: "patterns" };
+  if (seg[0] === "experiments") return { name: "experiments" };
+  if (seg[0] === "review") return { name: "review" };
   if (seg[0] === "intake") return { name: "intake" };
   return { name: "notfound" };
 }
@@ -43,7 +45,9 @@ export const activeNav = computed(() => {
 
 export const NAV = [
   { key: "overview", path: "/", label: "会诊报告", hint: "结论与修复代价" },
+  { key: "experiments", path: "/experiments", label: "实验对比", hint: "逐任务看翻转" },
   { key: "runs", path: "/runs", label: "轨迹浏览器", hint: "逐条下钻" },
   { key: "patterns", path: "/patterns", label: "失败模式", hint: "归纳与最小复现" },
+  { key: "review", path: "/review", label: "复核队列", hint: "机器判不准的" },
   { key: "intake", path: "/intake", label: "现场接诊", hint: "接入你的轨迹" },
 ] as const;

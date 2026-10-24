@@ -23,11 +23,12 @@ from analysis.align import align_runs, pick_pair  # noqa: E402
 from analysis.cluster import cluster, summarize  # noqa: E402
 from analysis.diagnose import diagnose  # noqa: E402
 from analysis.evaluate import EvalConfig, evaluate_all  # noqa: E402
+from analysis.experiment import compare  # noqa: E402
 from analysis.minimize import minimize, minimize_pattern  # noqa: E402
 from analysis.trace import Run, kind_label, run_from_dict  # noqa: E402
 
 DATA = ROOT / "data"
-REPORT_VERSION = "0.3.0"
+REPORT_VERSION = "0.4.0"
 
 
 def _load(name: str) -> dict:
@@ -287,6 +288,9 @@ def build() -> dict:
         "evaluation_rows": {r["run_id"]: r for r in evals["rows"]},
         "cost": _cost_block(runs, diagnoses),
         "catalog": _catalog(runs, tasks, diagnoses),
+        # 逐任务的实验矩阵。版本汇总（versions）只有两行数字，容易被总分掩盖真相；
+        # 这里把同一批任务摊开，才看得见「修好 1 个、弄坏 1 个、4 个变抛硬币」。
+        "experiment": compare(runs, diagnoses, version_rows),
     }
 
 

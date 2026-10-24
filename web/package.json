@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node -e \"require('fs').rmSync('../server/static/app-assets',{recursive:true,force:true})\"",
     "dev": "vite",
     "build": "vue-tsc -b && vite build"
   },

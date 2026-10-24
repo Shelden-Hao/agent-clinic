@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { NAV, activeNav, go, route } from "./router";
 import Overview from "./views/Overview.vue";
+import Experiments from "./views/Experiments.vue";
 import Explorer from "./views/Explorer.vue";
 import RunDetailView from "./views/RunDetail.vue";
 import Patterns from "./views/Patterns.vue";
+import Review from "./views/Review.vue";
 import Intake from "./views/Intake.vue";
 </script>
 
@@ -36,9 +38,11 @@ import Intake from "./views/Intake.vue";
 
     <main class="main">
       <Overview v-if="route.name === 'overview'" />
+      <Experiments v-else-if="route.name === 'experiments'" />
       <Explorer v-else-if="route.name === 'runs'" />
       <RunDetailView v-else-if="route.name === 'run'" :run-id="route.param!" />
       <Patterns v-else-if="route.name === 'patterns'" />
+      <Review v-else-if="route.name === 'review'" />
       <Intake v-else-if="route.name === 'intake'" />
       <p v-else class="loading">页面不存在。<a href="#/">返回会诊报告</a></p>
     </main>

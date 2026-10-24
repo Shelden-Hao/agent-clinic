@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api, type Report } from "../api";
+import { api, type Experiments, type Report, type ReviewQueue } from "../api";
 import { go } from "../router";
 
 const report = ref<Report | null>(null);
+const exp = ref<Experiments | null>(null);
+const review = ref<ReviewQueue | null>(null);
 const error = ref<string | null>(null);
 
 onMounted(async () => {
   try {
-    report.value = await api.overview();
+    // 三份数据并行取：概览页要同时给出「结论」「对账」「有没有人要签字」
+    const [r, e, q] = await Promise.all([api.overview(), api.experiments(), api.reviewQueue(true)]);
+    report.value = r;
+    exp.value = e;
+    review.value = q;
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
   }
@@ -53,6 +59,36 @@ const scoreRows = computed(() => {
 
 const cost = computed(() => report.value?.cost ?? null);
 const maxHist = computed(() => Math.max(1, ...(cost.value?.steps_histogram ?? []).map((h) => h.runs)));
+
+/* ── 逐任务对账 ── */
+const expN = computed(() => exp.value?.narrative ?? null);
+/** 矩阵按严重度排过序，取前几行正好是「最该先看的」：弄坏的、更糟的、变抛硬币的 */
+const expRows = computed(() => (exp.value?.rows ?? []).slice(0, 5));
+const expVersions = computed(() => exp.value?.versions ?? []);
+
+function ratio(taskId: string, v: string): string {
+  const row = exp.value?.rows.find((r) => r.task_id === taskId);
+  const c = row?.cells?.[v];
+  return c ? `${c.ok}/${c.total}` : "—";
+}
+
+function ratioTone(taskId: string, v: string): string {
+  const row = exp.value?.rows.find((r) => r.task_id === taskId);
+  const c = row?.cells?.[v];
+  if (!c || !c.total) return "dim";
+  if (c.ok === c.total) return "c-ok";
+  if (c.ok === 0) return "c-bad";
+  return "c-warn";
+}
+
+function vtagTone(v: string): string {
+  if (v === "regressed" || v === "worse") return "bad";
+  if (v === "fixed") return "ok";
+  if (v === "flaky_improved" || v === "flaky") return "warn";
+  return "plain";
+}
+
+const reviewPending = computed(() => review.value?.pending ?? 0);
 </script>
 
 <template>
@@ -110,6 +146,38 @@ const maxHist = computed(() => Math.max(1, ...(cost.value?.steps_histogram ?? []
       <p class="note">
         改完 prompt 之后失败率的变化，是「修复到底有没有用」最直接的证据 —— 也是这个工具存在的理由。
       </p>
+    </section>
+
+    <!-- 逐任务对账：失败率盖住的那一半 -->
+    <section v-if="expN" class="block">
+      <div class="eyebrow">逐任务对账 · 失败率说了不算的那部分</div>
+      <div class="card xcard">
+        <p class="xhead">{{ expN.headline }}</p>
+        <p v-if="expN.detail" class="xsub">{{ expN.detail }}</p>
+        <p v-if="expN.stability" class="xsub">{{ expN.stability }}</p>
+
+        <div class="xmini">
+          <div class="xrow xhead-row mono">
+            <span class="xt">任务</span>
+            <span v-for="v in expVersions" :key="v" class="xn">{{ v }}</span>
+            <span class="xv"></span>
+          </div>
+          <div v-for="row in expRows" :key="row.task_id" class="xrow">
+            <span class="xt mono">{{ row.task_id }}</span>
+            <span v-for="v in expVersions" :key="v" class="xn mono" :class="ratioTone(row.task_id, v)">
+              {{ ratio(row.task_id, v) }}
+            </span>
+            <span class="xv"><span class="vtag" :class="vtagTone(row.verdict)">{{ row.verdict_label }}</span></span>
+          </div>
+        </div>
+
+        <div class="xfoot">
+          <a class="linky" href="#/experiments" @click.prevent="go('/experiments')">逐条看实验矩阵 →</a>
+          <span class="xnote">
+            每格是「通过次数 / 总次数」。跑两次过一次不过，和两次都挂着，失败率只差 0.5 —— 但性质完全不同。
+          </span>
+        </div>
+      </div>
     </section>
 
     <!-- 修复的代价 -->
@@ -211,6 +279,24 @@ const maxHist = computed(() => Math.max(1, ...(cost.value?.steps_histogram ?? []
       </div>
     </section>
 
+    <!-- 复核状态 -->
+    <section v-if="review" class="block">
+      <div class="card rbar">
+        <div class="rbleft">
+          <div class="eyebrow">复核队列</div>
+          <p class="rbtext">
+            {{ review.total_failed }} 条失败诊断里，<b>{{ review.queued }} 条</b>置信度不足以直接采信
+            （{{ Math.round((review.queued / Math.max(1, review.total_failed)) * 100) }}%）。
+            其中 <b class="c-warn">{{ reviewPending }} 条</b>还在等人签字 ——
+            没签字的诊断不算废纸，但它还不是结论。
+          </p>
+        </div>
+        <button class="btn primary" @click="go('/review')">
+          {{ reviewPending ? `去签字（${reviewPending}）→` : "看看已签字的 →" }}
+        </button>
+      </div>
+    </section>
+
     <section class="block limits card">
       <div class="eyebrow">这份报告不声称什么</div>
       <ul>
@@ -218,11 +304,13 @@ const maxHist = computed(() => Math.max(1, ...(cost.value?.steps_histogram ?? []
         <li>归因是规则式的，判不出来时会明确写「未归类」，而不是编一个理由。</li>
         <li>「置信度」是规则的证据强度，不是统计意义上的概率。</li>
         <li>「最小复现」是<b>结构推断</b>，没有经过重跑验证 —— 界面上每一处都会原样标注这一点。</li>
+        <li>证据不足的诊断会进<b>复核队列</b>等人签字。没签字的结论照常展示，但不会和签过字的混在一起计数。</li>
         <li>样本量 {{ report.summary.total }} 条。低于 30 条时，占比数字只应看趋势，不应当结论。</li>
       </ul>
     </section>
 
     <div class="cta">
+      <button class="btn" @click="go('/experiments')">逐任务看实验矩阵 →</button>
       <button class="btn" @click="go('/runs')">逐条看轨迹 →</button>
       <button class="btn" @click="go('/patterns')">看失败模式与最小复现 →</button>
       <button class="btn primary" @click="go('/intake')">接入你自己的轨迹 →</button>
@@ -310,6 +398,30 @@ h1 { font-size: 23px; margin: 0 0 8px; letter-spacing: 0.3px; font-weight: 600; 
 .limits ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; }
 .limits li { margin-bottom: 6px; }
 .limits b { color: var(--text); }
+
+/* 逐任务对账 */
+.xcard { padding: 22px 24px; }
+.xhead { font-size: 17px; line-height: 1.6; margin: 0 0 10px; letter-spacing: .2px; }
+.xsub { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.xmini { margin-top: 16px; border-top: 1px solid #151b21; }
+.xrow { display: flex; align-items: center; padding: 9px 0; border-bottom: 1px solid #131a1f; font-size: 12.5px; }
+.xrow:last-child { border-bottom: 0; }
+.xhead-row { font-size: 10px; color: var(--dim); letter-spacing: .8px; padding: 8px 0; }
+.xt { width: 56px; color: var(--muted); }
+.xn { width: 62px; text-align: left; }
+.xv { margin-left: auto; }
+.vtag { font: 10.5px/1 var(--mono); padding: 4px 7px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--muted); }
+.vtag.bad { color: #ffb3b7; border-color: #4a2226; background: #1d1012; }
+.vtag.ok { color: #a8e8c6; border-color: #1e4131; background: #0f1d16; }
+.vtag.warn { color: #f0cd93; border-color: #45351d; background: #1c1609; }
+.xfoot { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+.xnote { color: var(--dim); font-size: 11.5px; flex: 1; min-width: 220px; }
+
+/* 复核状态条 */
+.rbar { display: flex; align-items: center; gap: 24px; padding: 20px 24px; flex-wrap: wrap; }
+.rbleft { flex: 1; min-width: 260px; }
+.rbtext { margin: 9px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+.rbtext b { color: var(--text); }
 
 .cta { display: flex; gap: 10px; margin-top: 34px; flex-wrap: wrap; }
 
