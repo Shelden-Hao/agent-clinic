@@ -28,6 +28,7 @@ from analysis.diagnose import diagnose  # noqa: E402
 from analysis.evaluate import EvalConfig, evaluate  # noqa: E402
 from analysis.ingest import FORMATS, ingest, ingest_jsonl, roundtrip_stats  # noqa: E402
 from analysis.minimize import minimize  # noqa: E402
+from analysis.regress import verify  # noqa: E402
 from analysis.trace import run_from_dict  # noqa: E402
 
 DATA_DIR = ROOT / "data"
@@ -364,6 +365,54 @@ def create_app() -> FastAPI:
         cases = [c for c in _read_regression() if c.get("case_id") != case_id]
         _write_regression(cases)
         return JSONResponse({"ok": True, "total": len(cases)})
+
+    @app.post("/api/regression/verify")
+    def verify_regression(payload: dict = Body(default={})) -> JSONResponse:
+        """拿一批轨迹，逐条验收回归集。
+
+        两种入口：
+        - 传 text：现场解析用户上传的轨迹（改完 prompt 重跑的那一批）
+        - 不传：用仓库内已有的轨迹（演示「修复前的用例 vs 修复后的轨迹」）
+
+        刻意不重跑模型：验收只回答「这个病还在不在」，不回答「模型现在会不会犯」。
+        """
+        cases = _read_regression()
+        if not cases:
+            return JSONResponse({"total": 0, "counts": {}, "verdicts": [], "summary": "回归集是空的，先存几条用例。"})
+
+        text = (payload or {}).get("text") or ""
+        if text.strip():
+            try:
+                parsed = json.loads(text)
+                res = ingest(parsed, None if (payload.get("format") or "auto") == "auto" else payload["format"])
+            except ValueError:
+                res = ingest_jsonl(text)
+            if not res.runs:
+                return JSONResponse(
+                    {
+                        "total": len(cases),
+                        "counts": {"uncovered": len(cases)},
+                        "verdicts": [],
+                        "summary": "这批数据没能解析出任何轨迹：" + "；".join(res.warnings[:2]),
+                    }
+                )
+            runs = res.runs
+            expects = _task_expects()
+        else:
+            runs = []
+            expects = _task_expects()
+            for raw in _corpus_runs():
+                run = run_from_dict(raw)
+                if not run.expected:
+                    run.expected = dict(expects.get(run.task_id) or {})
+                runs.append(run)
+
+        for run in runs:
+            if not run.expected:
+                run.expected = dict(expects.get(run.task_id) or {})
+
+        result = verify(cases, runs)
+        return JSONResponse(result)
 
     # ── 采集台：浏览器端真实跑 Agent，每一步回收到这里 ──────────────────────
     @app.get("/api/lab/bootstrap")

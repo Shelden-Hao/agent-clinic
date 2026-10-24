@@ -30,6 +30,17 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1.6 });
 const page = await ctx.newPage();
 
+// 长截图专用：把 sticky 侧栏摊平。
+// 不这么做，全页截图里的侧栏会停在它「粘住」的那一屏位置，出现在画面中间。
+// 这只影响截图，不改交付给用户的代码。
+await page.addInitScript(() => {
+  document.addEventListener("DOMContentLoaded", () => {
+    const s = document.createElement("style");
+    s.textContent = ".side{position:static!important;height:auto!important;min-height:100vh}";
+    document.head.appendChild(s);
+  });
+});
+
 const problems = [];
 page.on("pageerror", (e) => problems.push(`[pageerror] ${String(e).slice(0, 240)}`));
 page.on("console", (m) => {

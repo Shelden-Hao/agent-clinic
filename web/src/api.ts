@@ -92,6 +92,8 @@ export interface Pattern {
   run_ids: string[];
   examples: string[];
   advice: string;
+  /** 可直接粘贴进 system prompt 的规则草稿 */
+  patch?: string;
   minimal?: Minimal;
 }
 
@@ -248,12 +250,36 @@ export interface RegressionCase {
   case_id: string;
   kind: string;
   label: string;
+  task_id?: string;
   task_prompt?: string;
+  expect?: Record<string, unknown>;
   steps?: { i: number; kind: string; tool: string | null; args: Record<string, unknown>; ok: boolean; role: string }[];
   assertion?: string;
   added_at?: string;
   verified_by_replay?: boolean;
   note?: string;
+}
+
+export interface RegressionVerdict {
+  case_id: string;
+  kind: string;
+  label: string;
+  status: "fixed" | "partial" | "present" | "changed" | "uncovered";
+  status_label: string;
+  detail: string;
+  run_id: string | null;
+  now_kind: string | null;
+  now_label: string | null;
+  hit: number;
+  sample: number;
+}
+
+export interface RegressionVerify {
+  total: number;
+  counts: Record<string, number>;
+  covered?: number;
+  verdicts: RegressionVerdict[];
+  summary: string;
 }
 
 async function jget<T>(url: string): Promise<T> {
@@ -296,4 +322,7 @@ export const api = {
   addRegression: (c: RegressionCase) => jsend<{ ok: boolean; total: number }>("/api/regression/add", { case: c }),
   delRegression: (id: string) =>
     jsend<{ ok: boolean; total: number }>(`/api/regression/${encodeURIComponent(id)}`, null, "DELETE"),
+  /** 传入 text 表示用现场轨迹验收；不传则用仓库内已有轨迹 */
+  verifyRegression: (text = "", format = "auto") =>
+    jsend<RegressionVerify>("/api/regression/verify", { text, format }),
 };

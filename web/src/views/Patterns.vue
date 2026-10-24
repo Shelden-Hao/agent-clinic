@@ -8,6 +8,25 @@ const error = ref<string | null>(null);
 const activeId = ref<string | null>(null);
 const saving = ref(false);
 const savedMsg = ref("");
+const copied = ref(false);
+
+async function copyPatch(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 1600);
+  } catch {
+    // 非 HTTPS 或权限被拒时退化成选中文本，不让按钮变成一个死掉的装饰
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 1600);
+  }
+}
 
 onMounted(async () => {
   try {
@@ -50,7 +69,9 @@ async function saveActiveCase() {
       case_id: c.case_id,
       kind: m.kind,
       label: m.label,
+      task_id: c.task_id as string,
       task_prompt: c.task_prompt as string | undefined,
+      expect: c.expect as Record<string, unknown>,
       steps: m.chain
         .filter((n) => n.keep)
         .map((n) => ({ i: n.step_index, kind: n.kind, tool: n.tool, args: n.args, ok: n.ok, role: n.role })),
@@ -127,6 +148,21 @@ async function saveActiveCase() {
       <div class="advice">
         <div class="eyebrow">修复方向</div>
         <p>{{ active.advice }}</p>
+      </div>
+
+      <div v-if="active.patch" class="patchbox">
+        <div class="phead">
+          <div class="eyebrow">可直接粘贴的规则草稿</div>
+          <button class="btn tiny" @click="copyPatch(active.patch!)">
+            {{ copied ? "已复制" : "复制" }}
+          </button>
+        </div>
+        <pre class="patchtext">{{ active.patch }}</pre>
+        <p class="pnote">
+          这是针对这一类病的条款草稿，粘进 system prompt 就能用。
+          它不给「往哪个方向改」的建议，而是直接给出可执行的那句话 ——
+          诊断到这一步才算闭环。
+        </p>
       </div>
 
       <!-- 最小复现 -->
@@ -248,6 +284,15 @@ h1 { font-size: 22px; margin: 0 0 8px; font-weight: 600; }
 .kv dd { margin: 0; }
 .advice { margin-top: 18px; padding: 14px 16px; background: #0d1216; border: 1px solid var(--line); border-radius: 8px; }
 .advice p { margin: 8px 0 0; font-size: 13.5px; color: var(--muted); }
+
+.patchbox { margin-top: 12px; padding: 14px 16px; background: #0f1418; border: 1px solid #1d2b30; border-radius: 8px; }
+.phead { display: flex; align-items: center; gap: 10px; }
+.phead .btn { margin-left: auto; }
+.patchtext {
+  margin: 10px 0 0; padding: 11px 13px; background: #080b0e; border: 1px solid var(--line);
+  border-radius: 6px; font: 12.5px/1.7 var(--mono); color: #c9d6e2; white-space: pre-wrap;
+}
+.pnote { margin: 10px 0 0; color: var(--dim); font-size: 11.5px; line-height: 1.65; }
 
 .minwrap { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
 .mhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

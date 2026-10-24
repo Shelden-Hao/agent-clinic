@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api, type IntakeResult, type RegressionCase } from "../api";
+import { api, type IntakeResult, type RegressionCase, type RegressionVerify } from "../api";
 import { go } from "../router";
 
 const text = ref("");
@@ -19,6 +19,32 @@ const error = ref<string | null>(null);
 const cases = ref<RegressionCase[]>([]);
 const dragOver = ref(false);
 const openRun = ref<string | null>(null);
+const verifyResult = ref<RegressionVerify | null>(null);
+const verifying = ref(false);
+
+const STATUS_LABEL: Record<string, string> = {
+  fixed: "已修复",
+  partial: "不稳定",
+  present: "仍存在",
+  changed: "变成别的病",
+  uncovered: "未覆盖",
+};
+const statusLabel = (k: string) => STATUS_LABEL[k] ?? k;
+const countClass = (k: string) =>
+  k === "fixed" ? "ok" : k === "present" ? "bad" : k === "changed" || k === "partial" ? "warn" : "";
+
+async function runVerify(useUploaded: boolean) {
+  if (verifying.value) return;
+  verifying.value = true;
+  error.value = null;
+  try {
+    verifyResult.value = await api.verifyRegression(useUploaded ? text.value : "");
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    verifying.value = false;
+  }
+}
 
 async function loadCases() {
   try {
@@ -98,7 +124,9 @@ async function save(runId: string) {
       case_id: c.case_id,
       kind: r.minimal.kind,
       label: r.minimal.label,
+      task_id: c.task_id as string,
       task_prompt: c.task_prompt as string | undefined,
+      expect: c.expect as Record<string, unknown>,
       steps: r.minimal.chain
         .filter((n) => n.keep)
         .map((n) => ({ i: n.step_index, kind: n.kind, tool: n.tool, args: n.args, ok: n.ok, role: n.role })),
@@ -256,7 +284,39 @@ function scoreClass(v: number | null): string {
 
   <!-- 回归集 -->
   <section class="block">
-    <div class="eyebrow">我的回归集 · {{ cases.length }} 条最小复现用例</div>
+    <div class="reghead">
+      <div class="eyebrow">我的回归集 · {{ cases.length }} 条最小复现用例</div>
+      <div class="regactions" v-if="cases.length">
+        <button class="btn tiny" :disabled="verifying" @click="runVerify(false)">用内置轨迹验收</button>
+        <button class="btn tiny primary" :disabled="verifying || !text.trim()" @click="runVerify(true)">
+          {{ verifying ? "验收中…" : "用这批上传的轨迹验收" }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="verifyResult" class="card vresult">
+      <p class="vsum">{{ verifyResult.summary }}</p>
+      <div class="vcounts">
+        <span v-for="(n, k) in verifyResult.counts" :key="k" class="tag" :class="countClass(String(k))">
+          {{ statusLabel(String(k)) }} {{ n }}
+        </span>
+      </div>
+      <div class="vlist">
+        <div v-for="v in verifyResult.verdicts" :key="v.case_id" class="vrow" :class="v.status">
+          <span class="vstatus">{{ v.status_label }}</span>
+          <span class="vlabel">{{ v.label }}</span>
+          <span class="vdetail">{{ v.detail }}</span>
+        </div>
+      </div>
+      <p class="note">
+        「变成了别的病」是最该看的一格：它意味着你的修复把这批订单从一个坑推到了另一个坑。
+        「这次没有覆盖」不算通过 —— 没考和考过了是两件事。<br />
+        注意：「用内置轨迹验收」会把仓库里的 v1 和 v2 混在一起考，所以出现「部分修复」是预期的 ——
+        它说明同一任务在不同版本下表现不一致。真正有意义的用法是改完 prompt 重跑一批，
+        把<b>新版本</b>的轨迹传进来再验收。
+      </p>
+    </div>
+
     <div v-if="!cases.length" class="card emptybox">
       还没有用例。上面任何一条失败轨迹的「最小复现」都可以存进来，
       下次改完 prompt，这批用例就是你的验收清单。
@@ -341,6 +401,21 @@ h1 { font-size: 22px; margin: 0 0 8px; font-weight: 600; }
 .rscv { color: var(--text); }
 
 .emptybox { padding: 20px; color: var(--dim); font-size: 13px; }
+.reghead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.regactions { display: flex; gap: 8px; margin-left: auto; }
+.vresult { padding: 18px 20px; margin-bottom: 12px; }
+.vsum { margin: 0 0 12px; font-size: 14px; line-height: 1.65; }
+.vcounts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.vlist { display: flex; flex-direction: column; }
+.vrow { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid #141a20; font-size: 12.5px; }
+.vstatus { width: 76px; flex: 0 0 76px; font-size: 11px; }
+.vrow.fixed .vstatus { color: var(--green); }
+.vrow.present .vstatus { color: var(--red); }
+.vrow.partial .vstatus { color: var(--amber); }
+.vrow.changed .vstatus { color: var(--amber); }
+.vrow.uncovered .vstatus { color: var(--dim); }
+.vlabel { width: 84px; flex: 0 0 84px; color: var(--text); }
+.vdetail { flex: 1; color: var(--muted); }
 .cases { display: flex; flex-direction: column; gap: 8px; }
 .case { padding: 14px 16px; }
 .chead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

@@ -24,6 +24,7 @@ from analysis.diagnose import diagnose  # noqa: E402
 from analysis.evaluate import EvalConfig, evaluate  # noqa: E402
 from analysis.ingest import detect_format, ingest, ingest_jsonl, roundtrip_stats  # noqa: E402
 from analysis.minimize import minimize  # noqa: E402
+from analysis.regress import verify as verify_regression  # noqa: E402
 from analysis.trace import run_from_dict  # noqa: E402
 
 SAMPLES = ROOT / "data" / "samples"
@@ -263,6 +264,77 @@ class TestEvaluate(unittest.TestCase):
         eff = next(s for s in ev["scores"] if s["key"] == "efficiency")
         self.assertEqual(eff["score"], 0.0)
         self.assertIn("超出", eff["reason"])
+
+
+# ── 回归验收 ────────────────────────────────────────────────────────────────
+CASE = {
+    "case_id": "M-R1",
+    "kind": "over_escalation",
+    "label": "过度转人工",
+    "task_id": "T01",
+    "task_prompt": "订单 A1024 要退款",
+    "expect": {"action": "refund"},
+}
+
+ESCALATING = [tc(1, "get_order", {"order_id": "A1024"}, {"paid": 899}), tc(2, "escalate", {"order_id": "A1024"}, {"ok": True}), fin(3, "已转人工")]
+REFUNDING = [tc(1, "get_order", {"order_id": "A1024"}, {"paid": 899}), tc(2, "refund_order", {"order_id": "A1024", "amount": 899}, {"ok": True}), fin(3, "已为您退款")]
+
+
+def case_runs(steps_sets: list[tuple[list[dict], bool]], task: str = "T01"):
+    out = []
+    for i, (steps, ok) in enumerate(steps_sets):
+        out.append(
+            run_from_dict(
+                {
+                    "run_id": f"R{i}",
+                    "task_id": task,
+                    "prompt_version": "v9",
+                    "task_prompt": "订单 A1024 要退款",
+                    "expected": {"action": "refund"},
+                    "success": ok,
+                    "steps": steps,
+                }
+            )
+        )
+    return out
+
+
+class TestRegress(unittest.TestCase):
+    def test_all_hit_means_present(self):
+        res = verify_regression([CASE], case_runs([(ESCALATING, False), (ESCALATING, False)]))
+        self.assertEqual(res["verdicts"][0]["status"], "present")
+        self.assertEqual(res["counts"]["present"], 1)
+
+    def test_some_hit_means_partial_not_fixed(self):
+        """时好时坏必须单独算一类 —— 混进「已修复」就是骗自己。"""
+        res = verify_regression([CASE], case_runs([(ESCALATING, False), (REFUNDING, True)]))
+        v = res["verdicts"][0]
+        self.assertEqual(v["status"], "partial")
+        self.assertEqual((v["hit"], v["sample"]), (1, 2))
+        self.assertIn("不稳定", v["detail"])
+
+    def test_clean_pass_means_fixed(self):
+        res = verify_regression([CASE], case_runs([(REFUNDING, True)]))
+        self.assertEqual(res["verdicts"][0]["status"], "fixed")
+
+    def test_still_failing_other_way_means_changed(self):
+        steps = [tc(1, "get_order", {"order_id": "A1024"}, {"paid": 899}), fin(2, "需要我帮您确认吗？")]
+        res = verify_regression([CASE], case_runs([(steps, False)]))
+        v = res["verdicts"][0]
+        self.assertEqual(v["status"], "changed")
+        self.assertEqual(v["now_kind"], "asked_instead_of_acted")
+
+    def test_uncovered_is_not_counted_as_pass(self):
+        """没考 ≠ 考过了。这条是这个模块最重要的一条断言。"""
+        res = verify_regression([CASE], case_runs([(REFUNDING, True)], task="T99"))
+        self.assertEqual(res["verdicts"][0]["status"], "uncovered")
+        self.assertEqual(res["covered"], 0)
+        self.assertIn("无法判断", res["summary"])
+
+    def test_empty_batch_does_not_claim_success(self):
+        res = verify_regression([CASE], [])
+        self.assertEqual(res["covered"], 0)
+        self.assertIn("无法判断", res["summary"])
 
 
 if __name__ == "__main__":

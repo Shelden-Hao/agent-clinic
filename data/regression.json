@@ -1,11 +1,17 @@
 {
-  "updated_at": "2026-10-24T23:22:05+08:00",
+  "updated_at": "2026-10-24T23:30:12+08:00",
   "cases": [
     {
       "case_id": "M-T01-v1-1",
       "kind": "asked_instead_of_acted",
       "label": "只问不做",
+      "task_id": "T01",
       "task_prompt": "我买的降噪耳机（订单 A1024）戴着夹耳朵，不想要了，能退款吗？",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1024",
+        "max_amount": 899
+      },
       "steps": [
         {
           "i": 4,
@@ -19,7 +25,72 @@
       "assertion": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
       "verified_by_replay": false,
       "note": "这类失败没有「出错的那一步」，最短复现就是一次不产生任何动作的收尾。它说明问题在指令缺失，而不是某一步执行出错 —— 修法自然也不同：补规则，不是改工具。",
-      "added_at": "2026-10-24T23:22:05+08:00"
+      "added_at": "2026-10-24T23:30:12+08:00"
+    },
+    {
+      "case_id": "M-T02-v1-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "task_id": "T02",
+      "task_prompt": "A1025 这个键盘我改主意了，还没到货，帮我退了吧。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1025",
+        "max_amount": 469.0
+      },
+      "steps": [
+        {
+          "i": 2,
+          "kind": "tool_call",
+          "tool": "get_order",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "role": "required_context"
+        },
+        {
+          "i": 3,
+          "kind": "tool_call",
+          "tool": "get_user",
+          "args": {
+            "user_id": "U002"
+          },
+          "ok": true,
+          "role": "required_context"
+        },
+        {
+          "i": 4,
+          "kind": "tool_call",
+          "tool": "get_logistics",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "role": "required_context"
+        },
+        {
+          "i": 8,
+          "kind": "tool_call",
+          "tool": "escalate",
+          "args": {
+            "summary": "用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元）退款，理由为\"改主意不要了\"。订单状态为已发货、运输中（预计明天到达），未签收；用户历史退款 0 次。因订单已发货，需人工协助拦截包裹或引导用户拒收，退回验收入库后按全额 469 元退款。请人工跟进处理。"
+          },
+          "ok": true,
+          "role": "root_cause"
+        },
+        {
+          "i": 9,
+          "kind": "final",
+          "tool": null,
+          "args": {},
+          "ok": true,
+          "role": "consequence"
+        }
+      ],
+      "assertion": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "verified_by_replay": false,
+      "added_at": "2026-10-24T23:28:04+08:00"
     }
   ]
 }

@@ -39,6 +39,30 @@ _ADVICE = {
 }
 
 
+# 可直接粘贴进 system prompt 的规则草稿。
+# 为什么单独给一份：_ADVICE 回答「往哪个方向改」，patch 回答「具体加哪句话」。
+# 诊断到这一步才算闭环 —— 否则用户看完报告，还是得自己把建议翻译成 prompt。
+_PATCH = {
+    "bad_argument": "调用任何工具前先核对必填字段；缺任何一项都不发起调用，先补齐或向用户询问。",
+    "tool_error": "工具返回错误时，换一组参数重试一次；仍失败则转人工，不得跳过或忽略。",
+    "wrong_tool": "退款类请求必须走退款工具；转人工只用于政策明确要求的情形，不得替代执行。",
+    "hallucinated_fact": "所有订单号、日期、金额必须来自工具返回，禁止自行补全、推测或改写。",
+    "loop": "连续两次以相同参数调用同一工具后必须停止并换策略：换参数、换工具，或转人工。",
+    "context_lost": "已经查到的事实直接引用，不得用相同参数重复查询。",
+    "premature_answer": "涉及金额、期限、政策的结论，必须先检索政策库；未检索不得给出结论。",
+    "escalation_missed": "遇到以下任一情形必须转人工：超出受理期限、金额存在争议、用户明确要求人工。",
+    "over_escalation": "以下情形必须直接办理，不得转人工：在受理期限内、金额未超上限、订单归属校验通过。",
+    "asked_instead_of_acted": "必填信息齐备时必须直接执行动作；不得以「需要我帮您确认吗」代替执行。",
+    "promised_but_not_done": "答复前自检：凡声称「已办理」的动作，必须能在本轮调用记录里找到对应调用；否则改为说明进展。",
+    "no_action": "信息足够后必须产生一个动作：执行、转人工、或明确追问，三者之一，不得停在纯文本。",
+    "unknown": "",
+}
+
+
+def patch_for(kind: str) -> str:
+    return _PATCH.get(kind, "")
+
+
 def _tokens(text: str) -> str:
     t = text or ""
     for pattern, repl in _NORM:
@@ -83,6 +107,7 @@ class Pattern:
             "run_ids": self.run_ids[:12],
             "examples": self.examples[:2],
             "advice": self.advice,
+            "patch": patch_for(self.kind),
         }
 
 

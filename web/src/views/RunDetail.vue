@@ -69,7 +69,9 @@ async function saveCase() {
       case_id: c.case_id,
       kind: minimal.value.kind,
       label: minimal.value.label,
+      task_id: (c.task_id as string) ?? d.value?.task_id,
       task_prompt: d.value?.task_prompt,
+      expect: (c.expect as Record<string, unknown>) ?? d.value?.expected,
       steps: minimal.value.chain
         .filter((n) => n.keep)
         .map((n) => ({ i: n.step_index, kind: n.kind, tool: n.tool, args: n.args, ok: n.ok, role: n.role })),

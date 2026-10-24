@@ -113,6 +113,19 @@ if (await saveBtn.count()) {
   check("存在存进回归集按钮", false);
 }
 
+// 回归验收
+const verifyBtn = page.locator('button:has-text("用内置轨迹验收")').first();
+if (await verifyBtn.count()) {
+  await verifyBtn.click();
+  await page.waitForTimeout(2600);
+  t = await bodyText();
+  check("回归验收给出结论", /条被考到|无法判断修复效果/.test(t), t.slice(-200));
+  check("验收结果区分状态", /已修复|仍存在|不稳定|变成别的病|未覆盖/.test(t));
+  await page.screenshot({ path: `${outDir}/verify.png`, fullPage: true });
+} else {
+  check("存在回归验收入口", false);
+}
+
 // ── 5. 失败模式 ──
 console.log("\n[5] 失败模式");
 await page.goto(base + "#/patterns", { waitUntil: "networkidle" });
@@ -120,6 +133,7 @@ await page.waitForTimeout(900);
 t = await bodyText();
 check("显示四类模式", (t.match(/P[1-4]/g) || []).length >= 4);
 check("显示分叉对比", t.includes("分叉点"));
+check("给出可粘贴的规则草稿", t.includes("可直接粘贴的规则草稿"));
 await page.locator(".pattern").nth(1).click();
 await page.waitForTimeout(500);
 t = await bodyText();
