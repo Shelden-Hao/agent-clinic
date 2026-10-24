@@ -225,12 +225,22 @@ await page.screenshot({ path: `${outDir}/patterns.png`, fullPage: true });
 // ── 8. 移动端 ──
 console.log("\n[8] 移动端视口");
 await page.setViewportSize({ width: 390, height: 844 });
+for (const [label, hash] of [
+  ["首页", "#/"],
+  ["实验矩阵", "#/experiments"],
+  ["轨迹浏览器", "#/runs"],
+  ["失败模式", "#/patterns"],
+  ["复核队列", "#/review"],
+]) {
+  await page.goto(base + hash, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+  );
+  check(`${label}无横向溢出`, overflow <= 2, `溢出 ${overflow}px`);
+}
 await page.goto(base + "#/", { waitUntil: "networkidle" });
-await page.waitForTimeout(900);
-const overflow = await page.evaluate(
-  () => document.documentElement.scrollWidth - document.documentElement.clientWidth
-);
-check("首页无横向溢出", overflow <= 2, `溢出 ${overflow}px`);
+await page.waitForTimeout(700);
 await page.screenshot({ path: `${outDir}/mobile.png`, fullPage: false });
 
 console.log("\n页面错误：" + (problems.length ? problems.length + " 条" : "无"));

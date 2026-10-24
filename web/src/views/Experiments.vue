@@ -187,6 +187,7 @@ function brief(s: { tool?: string | null; args?: Record<string, unknown>; conten
     <section class="block">
       <div class="eyebrow">逐任务矩阵 · 点任意一行展开它的轨迹</div>
       <div class="card">
+        <div class="mtxwrap">
         <table class="mtx">
           <thead>
             <tr>
@@ -297,6 +298,7 @@ function brief(s: { tool?: string | null; args?: Record<string, unknown>; conten
             </template>
           </tbody>
         </table>
+        </div>
       </div>
       <p class="note">{{ data.caveat }}</p>
     </section>
@@ -391,8 +393,10 @@ h1 { font-size: 23px; margin: 0 0 8px; letter-spacing: 0.3px; font-weight: 600; 
 .legend span { display: flex; align-items: center; gap: 6px; }
 .legend .dot { width: 8px; height: 8px; border-radius: 2px; display: block; }
 
-/* 矩阵 */
-.mtx { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* 矩阵。表格有若干 nowrap 列，窄屏下必须让它自己横向滚动，
+   否则它的 min-content 会把整个 grid 撑出屏幕（实测 390px 下溢出 14px）。 */
+.mtxwrap { overflow-x: auto; }
+.mtx { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 380px; }
 .mtx th {
   text-align: left; padding: 12px 16px; font: 500 10.5px/1 var(--mono);
   letter-spacing: .8px; color: var(--dim); border-bottom: 1px solid var(--line);
