@@ -1,0 +1,15 @@
+# 依赖与构建产物（本项目为零依赖静态站点，此处仅为防误提交）
+node_modules/
+dist/
+build/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# 本地验收产物
+screenshots/
+_scratch/
