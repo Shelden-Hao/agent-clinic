@@ -100,6 +100,15 @@ class Run:
     model: str = "unknown"
     started_at: str = ""
     usage: dict[str, int] = field(default_factory=dict)
+    # 轨迹来源：native = 本项目采集器真跑出来的；其余为外部导入。
+    # 报告里必须显示这个字段 —— 对导入轨迹的结论强度低于自采轨迹，不能混着讲。
+    imported_from: str = "native"
+    # 外部导入时可能没有任务期望，任务级规则（4 类）就失效了，这里如实记录
+    expectation_missing: bool = False
+    # 这条轨迹的成败**是否真的被判定过**。
+    # OpenTelemetry / LangSmith 只告诉你「工具有没有报错」，
+    # 不告诉你「任务有没有完成」。把前者当成后者，就是拿不确定性冒充结论。
+    success_known: bool = True
 
     @property
     def tool_steps(self) -> list[Step]:
@@ -147,4 +156,7 @@ def run_from_dict(d: dict[str, Any]) -> Run:
         model=d.get("model", "unknown"),
         started_at=d.get("started_at", ""),
         usage=d.get("usage") or {},
+        imported_from=d.get("imported_from") or d.get("came_from") or "native",
+        expectation_missing=bool(d.get("expectation_missing")),
+        success_known=bool(d.get("success_known", True)),
     )

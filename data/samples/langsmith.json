@@ -1,0 +1,319 @@
+{
+  "runs": [
+    {
+      "id": "89ac3ea4fd30446d",
+      "name": "order-support-agent",
+      "run_type": "chain",
+      "parent_run_id": null,
+      "inputs": {
+        "question": "我买的降噪耳机（订单 A1024）戴着夹耳朵，不想要了，能退款吗？"
+      },
+      "outputs": {
+        "output": "我帮您查到了，情况如下：\n\n- **订单 A1024｜无线降噪耳机 Pro**，实付 899 元，状态：已签收，签收至今 3 天\n- 您的会员等级：**黑卡会员**，适用「七天无理由退款」政策的**延长至 30 天**期限\n\n由于还在 30 天无理由退款期内，且订单尚未退款（可退金额 899 元），符合退款条件，可以直接为您办理全额退款。\n\n不过有一个小提醒：耳机这类商品通常涉及**已拆封/使用后的商品完好性**要求。请确认耳机及配件、包装是否完整。如果商品完好，我这就为您发起全额退款 899 元。\n\n请确认：**是否现在为您发起 899 元退款？** 退款原因我默认填写为「商品佩戴不适（夹耳），申请无理由退货退款」。"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:00Z"
+    },
+    {
+      "id": "ee26b4159e4f278f",
+      "name": "get_order",
+      "run_type": "tool",
+      "parent_run_id": "89ac3ea4fd30446d",
+      "inputs": {
+        "order_id": "A1024"
+      },
+      "outputs": {
+        "order_id": "A1024",
+        "user_id": "U001",
+        "title": "无线降噪耳机 Pro",
+        "paid": 899,
+        "status": "delivered",
+        "days_since_purchase": 3,
+        "refunded": 0,
+        "refundable": 899
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:02Z"
+    },
+    {
+      "id": "49174f71087af271",
+      "name": "get_user",
+      "run_type": "tool",
+      "parent_run_id": "89ac3ea4fd30446d",
+      "inputs": {
+        "user_id": "U001"
+      },
+      "outputs": {
+        "user_id": "U001",
+        "name": "陈默",
+        "level": "black",
+        "refund_count": 1,
+        "join_days": 820
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:03Z"
+    },
+    {
+      "id": "d6f459bd6021806b",
+      "name": "search_policy",
+      "run_type": "tool",
+      "parent_run_id": "89ac3ea4fd30446d",
+      "inputs": {
+        "query": "退款期限 无理由退货 耳机"
+      },
+      "outputs": {
+        "hits": [
+          {
+            "id": "P-REFUND-01",
+            "title": "七天无理由退款",
+            "body": "普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。",
+            "score": 6.5
+          },
+          {
+            "id": "P-REFUND-02",
+            "title": "未发货订单取消",
+            "body": "订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。",
+            "score": 2.25
+          }
+        ]
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:04Z"
+    },
+    {
+      "id": "4dacf02112d652fd",
+      "name": "order-support-agent",
+      "run_type": "chain",
+      "parent_run_id": null,
+      "inputs": {
+        "question": "A1025 这个键盘我改主意了，还没到货，帮我退了吧。"
+      },
+      "outputs": {
+        "output": "已为您转接人工客服，工单号 **H3136**。\n\n**接下来您可以这样做（任选其一）：**\n1. **拒收包裹**：明天快递到时直接拒收，包裹会退回仓库，退回入库后即可全额退款 469 元（这种情况退款最快、最稳妥）。\n2. **等人工拦截**：客服会尝试联系快递拦截，若拦截成功则无需您操作。\n\n人工客服会尽快与您联系确认处理方式。还需要我帮您做别的吗？"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:00Z"
+    },
+    {
+      "id": "c14bdc23084adf13",
+      "name": "get_order",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "order_id": "A1025"
+      },
+      "outputs": {
+        "order_id": "A1025",
+        "user_id": "U002",
+        "title": "机械键盘 87 键",
+        "paid": 469,
+        "status": "shipped",
+        "days_since_purchase": 5,
+        "refunded": 0,
+        "refundable": 469
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:02Z"
+    },
+    {
+      "id": "127aac6c723bac2a",
+      "name": "get_user",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "user_id": "U002"
+      },
+      "outputs": {
+        "user_id": "U002",
+        "name": "李昂",
+        "level": "gold",
+        "refund_count": 0,
+        "join_days": 410
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:03Z"
+    },
+    {
+      "id": "d5f7e7c7b8a31dd8",
+      "name": "get_logistics",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "order_id": "A1025"
+      },
+      "outputs": {
+        "order_id": "A1025",
+        "logistics": "运输中，预计明天到达",
+        "status": "shipped"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:04Z"
+    },
+    {
+      "id": "4f8060a5b1793743",
+      "name": "search_policy",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "query": "未发货退款 拒收 退款期限 金额规则"
+      },
+      "outputs": {
+        "hits": [
+          {
+            "id": "P-REFUND-01",
+            "title": "七天无理由退款",
+            "body": "普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。",
+            "score": 4.5
+          },
+          {
+            "id": "P-REFUND-02",
+            "title": "未发货订单取消",
+            "body": "订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。",
+            "score": 4.4
+          }
+        ]
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:05Z"
+    },
+    {
+      "id": "1a9fa2506c184fb6",
+      "name": "search_policy",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "query": "已发货 运输中 拒收 拦截 退款"
+      },
+      "outputs": {
+        "hits": [
+          {
+            "id": "P-REFUND-01",
+            "title": "七天无理由退款",
+            "body": "普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。",
+            "score": 2.35
+          },
+          {
+            "id": "P-REFUND-02",
+            "title": "未发货订单取消",
+            "body": "订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。",
+            "score": 2.25
+          }
+        ]
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:06Z"
+    },
+    {
+      "id": "63bded63b46177bf",
+      "name": "escalate",
+      "run_type": "tool",
+      "parent_run_id": "4dacf02112d652fd",
+      "inputs": {
+        "summary": "用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元）退款，理由为\"改主意不要了\"。订单状态为已发货、运输中（预计明天到达），未签收；用户历史退款 0 次。因订单已发货，需人工协助拦截包裹或引导用户拒收，退回验收入库后按全额 469 元退款。请人工跟进处理。"
+      },
+      "outputs": {
+        "ok": true,
+        "ticket_id": "H3136",
+        "summary": "用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元）退款，理由为\"改主意不要了\"。订单状态为已发货、运输中（预计明天到达），未签收；用户历史退款 0 次。因订单已发货，需人工协助拦截包裹或引导用户拒收，退回验收入库后按全额 469 元退款。请人工跟进处理。"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:08Z"
+    },
+    {
+      "id": "b93565af852310ac",
+      "name": "order-support-agent",
+      "run_type": "chain",
+      "parent_run_id": null,
+      "inputs": {
+        "question": "手环 A1026 用了几天不好用，我要退。"
+      },
+      "outputs": {
+        "output": "已为您转接人工客服，工单号：**H8728**。\n\n**处理说明：**\n- 您的订单签收已 42 天，超出银卡会员 15 天无理由退货期限，按政策需人工审核，我无法直接退款。\n- 人工客服会结合商品实际使用情况、质量问题等因素进一步判断是否可退，请您留意后续联系。\n\n**温馨提示：** 如果您认为手环存在**质量问题或功能故障**（而非单纯\"不好用\"），可以在与人工客服沟通时说明具体情况，这类问题通常不受无理由退货期限限制，处理方式可能不同。\n\n请问还有其他可以帮您的吗？"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:00Z"
+    },
+    {
+      "id": "3198596dd61c658e",
+      "name": "get_order",
+      "run_type": "tool",
+      "parent_run_id": "b93565af852310ac",
+      "inputs": {
+        "order_id": "A1026"
+      },
+      "outputs": {
+        "order_id": "A1026",
+        "user_id": "U003",
+        "title": "智能手环 5 代",
+        "paid": 259,
+        "status": "delivered",
+        "days_since_purchase": 42,
+        "refunded": 0,
+        "refundable": 259
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:02Z"
+    },
+    {
+      "id": "ec4bc0aa56a86a76",
+      "name": "get_user",
+      "run_type": "tool",
+      "parent_run_id": "b93565af852310ac",
+      "inputs": {
+        "user_id": "U003"
+      },
+      "outputs": {
+        "user_id": "U003",
+        "name": "周咪",
+        "level": "silver",
+        "refund_count": 5,
+        "join_days": 96
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:03Z"
+    },
+    {
+      "id": "47a4e3ab86003af1",
+      "name": "search_policy",
+      "run_type": "tool",
+      "parent_run_id": "b93565af852310ac",
+      "inputs": {
+        "query": "退货期限 已使用商品退款规则"
+      },
+      "outputs": {
+        "hits": [
+          {
+            "id": "P-REFUND-01",
+            "title": "七天无理由退款",
+            "body": "普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。",
+            "score": 4.35
+          },
+          {
+            "id": "P-REFUND-02",
+            "title": "未发货订单取消",
+            "body": "订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。",
+            "score": 2.25
+          }
+        ]
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:04Z"
+    },
+    {
+      "id": "4fc8810eda3a750d",
+      "name": "escalate",
+      "run_type": "tool",
+      "parent_run_id": "b93565af852310ac",
+      "inputs": {
+        "summary": "用户 U003（周咪，银卡会员）申请退订单 A1026（智能手环5代，实付259元，状态已签收）。签收已42天，超出银卡15天无理由退货期限，用户称\"用了几天不好用\"。历史退款次数5次。需人工审核是否可退及具体处理方案。"
+      },
+      "outputs": {
+        "ok": true,
+        "ticket_id": "H8728",
+        "summary": "用户 U003（周咪，银卡会员）申请退订单 A1026（智能手环5代，实付259元，状态已签收）。签收已42天，超出银卡15天无理由退货期限，用户称\"用了几天不好用\"。历史退款次数5次。需人工审核是否可退及具体处理方案。"
+      },
+      "error": null,
+      "start_time": "2026-10-24T10:00:06Z"
+    }
+  ]
+}

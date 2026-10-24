@@ -1,0 +1,25 @@
+{
+  "updated_at": "2026-10-24T23:22:05+08:00",
+  "cases": [
+    {
+      "case_id": "M-T01-v1-1",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "task_prompt": "我买的降噪耳机（订单 A1024）戴着夹耳朵，不想要了，能退款吗？",
+      "steps": [
+        {
+          "i": 4,
+          "kind": "final",
+          "tool": null,
+          "args": {},
+          "ok": true,
+          "role": "root_cause"
+        }
+      ],
+      "assertion": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+      "verified_by_replay": false,
+      "note": "这类失败没有「出错的那一步」，最短复现就是一次不产生任何动作的收尾。它说明问题在指令缺失，而不是某一步执行出错 —— 修法自然也不同：补规则，不是改工具。",
+      "added_at": "2026-10-24T23:22:05+08:00"
+    }
+  ]
+}

@@ -312,13 +312,26 @@ def diagnose(run: Run, expect: dict[str, Any] | None = None) -> Diagnosis:
     早发生的小错往往才是根因，晚发生的致命错常常只是它的后果 ——
     这一点是「会诊」和「看日志」最大的区别。
     """
-    if run.success:
+    if run.success and run.success_known:
         return Diagnosis(
             run_id=run.run_id,
             kind="unknown",
             step_index=-1,
             evidence="该轨迹执行成功，未做归因",
             confidence=1.0,
+        )
+    if run.success and not run.success_known:
+        # 导入格式只报了「工具层无报错」，这不等于任务完成。
+        # 把它写成 unknown 并讲清原因，是这一层唯一诚实的做法。
+        return Diagnosis(
+            run_id=run.run_id,
+            kind="unknown",
+            step_index=-1,
+            evidence=(
+                "工具调用全部正常返回，但该轨迹来源不含「任务应当完成什么」，"
+                "因此无法判定任务成败 —— 这是未判定，不是通过"
+            ),
+            confidence=0.0,
         )
 
     findings: list[Finding] = []

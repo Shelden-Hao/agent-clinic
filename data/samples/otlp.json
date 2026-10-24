@@ -1,0 +1,639 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "order-support-agent"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "agent-clinic.sample"
+          },
+          "spans": [
+            {
+              "traceId": "295388d62adc285a",
+              "spanId": "ee26b4159e4f278f",
+              "parentSpanId": "",
+              "name": "get_order",
+              "kind": 3,
+              "startTimeUnixNano": "1760000002000000000",
+              "endTimeUnixNano": "1760000002800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_order"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1024\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1024\", \"user_id\": \"U001\", \"title\": \"无线降噪耳机 Pro\", \"paid\": 899, \"status\": \"delivered\", \"days_since_purchase\": 3, \"refunded\": 0, \"refundable\": 899}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "295388d62adc285a",
+              "spanId": "49174f71087af271",
+              "parentSpanId": "",
+              "name": "get_user",
+              "kind": 3,
+              "startTimeUnixNano": "1760000003000000000",
+              "endTimeUnixNano": "1760000003800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_user"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U001\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U001\", \"name\": \"陈默\", \"level\": \"black\", \"refund_count\": 1, \"join_days\": 820}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "295388d62adc285a",
+              "spanId": "d6f459bd6021806b",
+              "parentSpanId": "",
+              "name": "search_policy",
+              "kind": 3,
+              "startTimeUnixNano": "1760000004000000000",
+              "endTimeUnixNano": "1760000004800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "search_policy"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"query\": \"退款期限 无理由退货 耳机\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"hits\": [{\"id\": \"P-REFUND-01\", \"title\": \"七天无理由退款\", \"body\": \"普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。\", \"score\": 6.5}, {\"id\": \"P-REFUND-02\", \"title\": \"未发货订单取消\", \"body\": \"订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。\", \"score\": 2.25}]}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "order-support-agent"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "agent-clinic.sample"
+          },
+          "spans": [
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "c14bdc23084adf13",
+              "parentSpanId": "",
+              "name": "get_order",
+              "kind": 3,
+              "startTimeUnixNano": "1760000002000000000",
+              "endTimeUnixNano": "1760000002800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_order"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1025\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1025\", \"user_id\": \"U002\", \"title\": \"机械键盘 87 键\", \"paid\": 469, \"status\": \"shipped\", \"days_since_purchase\": 5, \"refunded\": 0, \"refundable\": 469}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "127aac6c723bac2a",
+              "parentSpanId": "",
+              "name": "get_user",
+              "kind": 3,
+              "startTimeUnixNano": "1760000003000000000",
+              "endTimeUnixNano": "1760000003800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_user"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U002\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U002\", \"name\": \"李昂\", \"level\": \"gold\", \"refund_count\": 0, \"join_days\": 410}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "d5f7e7c7b8a31dd8",
+              "parentSpanId": "",
+              "name": "get_logistics",
+              "kind": 3,
+              "startTimeUnixNano": "1760000004000000000",
+              "endTimeUnixNano": "1760000004800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_logistics"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1025\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1025\", \"logistics\": \"运输中，预计明天到达\", \"status\": \"shipped\"}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "4f8060a5b1793743",
+              "parentSpanId": "",
+              "name": "search_policy",
+              "kind": 3,
+              "startTimeUnixNano": "1760000005000000000",
+              "endTimeUnixNano": "1760000005800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "search_policy"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"query\": \"未发货退款 拒收 退款期限 金额规则\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"hits\": [{\"id\": \"P-REFUND-01\", \"title\": \"七天无理由退款\", \"body\": \"普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。\", \"score\": 4.5}, {\"id\": \"P-REFUND-02\", \"title\": \"未发货订单取消\", \"body\": \"订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。\", \"score\": 4.4}]}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "1a9fa2506c184fb6",
+              "parentSpanId": "",
+              "name": "search_policy",
+              "kind": 3,
+              "startTimeUnixNano": "1760000006000000000",
+              "endTimeUnixNano": "1760000006800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "search_policy"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"query\": \"已发货 运输中 拒收 拦截 退款\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"hits\": [{\"id\": \"P-REFUND-01\", \"title\": \"七天无理由退款\", \"body\": \"普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。\", \"score\": 2.35}, {\"id\": \"P-REFUND-02\", \"title\": \"未发货订单取消\", \"body\": \"订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。\", \"score\": 2.25}]}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "d3c6b162bf588d3d",
+              "spanId": "63bded63b46177bf",
+              "parentSpanId": "",
+              "name": "escalate",
+              "kind": 3,
+              "startTimeUnixNano": "1760000008000000000",
+              "endTimeUnixNano": "1760000008800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "escalate"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"summary\": \"用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元）退款，理由为\\\"改主意不要了\\\"。订单状态为已发货、运输中（预计明天到达），未签收；用户历史退款 0 次。因订单已发货，需人工协助拦截包裹或引导用户拒收，退回验收入库后按全额 469 元退款。请人工跟进处理。\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"ok\": true, \"ticket_id\": \"H3136\", \"summary\": \"用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元）退款，理由为\\\"改主意不要了\\\"。订单状态为已发货、运输中（预计明天到达），未签收；用户历史退款 0 次。因订单已发货，需人工协助拦截包裹或引导用户拒收，退回验收入库后按全额 469 元退款。请人工跟进处理。\"}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "order-support-agent"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "agent-clinic.sample"
+          },
+          "spans": [
+            {
+              "traceId": "6c3fae540aa3d276",
+              "spanId": "3198596dd61c658e",
+              "parentSpanId": "",
+              "name": "get_order",
+              "kind": 3,
+              "startTimeUnixNano": "1760000002000000000",
+              "endTimeUnixNano": "1760000002800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_order"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1026\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"order_id\": \"A1026\", \"user_id\": \"U003\", \"title\": \"智能手环 5 代\", \"paid\": 259, \"status\": \"delivered\", \"days_since_purchase\": 42, \"refunded\": 0, \"refundable\": 259}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "6c3fae540aa3d276",
+              "spanId": "ec4bc0aa56a86a76",
+              "parentSpanId": "",
+              "name": "get_user",
+              "kind": 3,
+              "startTimeUnixNano": "1760000003000000000",
+              "endTimeUnixNano": "1760000003800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "get_user"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U003\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"user_id\": \"U003\", \"name\": \"周咪\", \"level\": \"silver\", \"refund_count\": 5, \"join_days\": 96}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "6c3fae540aa3d276",
+              "spanId": "47a4e3ab86003af1",
+              "parentSpanId": "",
+              "name": "search_policy",
+              "kind": 3,
+              "startTimeUnixNano": "1760000004000000000",
+              "endTimeUnixNano": "1760000004800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "search_policy"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"query\": \"退货期限 已使用商品退款规则\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"hits\": [{\"id\": \"P-REFUND-01\", \"title\": \"七天无理由退款\", \"body\": \"普通用户自签收之日起 7 天内可申请无理由退款；银卡及以上会员延长至 15 天；黑卡会员延长至 30 天。超过期限的申请需转人工审核。\", \"score\": 4.35}, {\"id\": \"P-REFUND-02\", \"title\": \"未发货订单取消\", \"body\": \"订单状态为待发货时可直接取消并全额退款，无需审核。订单已取消但显示未退款的，可直接发起全额退款。\", \"score\": 2.25}]}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            },
+            {
+              "traceId": "6c3fae540aa3d276",
+              "spanId": "4fc8810eda3a750d",
+              "parentSpanId": "",
+              "name": "escalate",
+              "kind": 3,
+              "startTimeUnixNano": "1760000006000000000",
+              "endTimeUnixNano": "1760000006800000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "deepseek-v4-flash"
+                  }
+                },
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "escalate"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"summary\": \"用户 U003（周咪，银卡会员）申请退订单 A1026（智能手环5代，实付259元，状态已签收）。签收已42天，超出银卡15天无理由退货期限，用户称\\\"用了几天不好用\\\"。历史退款次数5次。需人工审核是否可退及具体处理方案。\"}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"ok\": true, \"ticket_id\": \"H8728\", \"summary\": \"用户 U003（周咪，银卡会员）申请退订单 A1026（智能手环5代，实付259元，状态已签收）。签收已42天，超出银卡15天无理由退货期限，用户称\\\"用了几天不好用\\\"。历史退款次数5次。需人工审核是否可退及具体处理方案。\"}"
+                  }
+                }
+              ],
+              "status": {
+                "code": "STATUS_CODE_UNSET"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
