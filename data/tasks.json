@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "task_id": "T01",
+      "user_id": "U001",
+      "prompt": "我买的降噪耳机（订单 A1024）戴着夹耳朵，不想要了，能退款吗？",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1024",
+        "max_amount": 899.0
+      }
+    },
+    {
+      "task_id": "T02",
+      "user_id": "U002",
+      "prompt": "A1025 这个键盘我改主意了，还没到货，帮我退了吧。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1025",
+        "max_amount": 469.0
+      }
+    },
+    {
+      "task_id": "T03",
+      "user_id": "U003",
+      "prompt": "手环 A1026 用了几天不好用，我要退。",
+      "expect": {
+        "action": "escalate",
+        "reason": "超过退款期限"
+      }
+    },
+    {
+      "task_id": "T04",
+      "user_id": "U004",
+      "prompt": "A1027 这个支架我不要了，钱怎么还没退给我？",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1027",
+        "max_amount": 329.0
+      }
+    },
+    {
+      "task_id": "T05",
+      "user_id": "U005",
+      "prompt": "充电宝 A1028 退过一次了，剩下那部分也退了吧。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1028",
+        "max_amount": 99.0
+      }
+    },
+    {
+      "task_id": "T06",
+      "user_id": "U006",
+      "prompt": "椅子 A1029 坐着腰疼，全额退，运费也退。",
+      "expect": {
+        "action": "escalate",
+        "reason": "涉及运费与赔偿争议"
+      }
+    },
+    {
+      "task_id": "T07",
+      "user_id": "U007",
+      "prompt": "扩展坞 A1030 还在路上，我不想要了。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1030",
+        "max_amount": 219.0
+      }
+    },
+    {
+      "task_id": "T08",
+      "user_id": "U008",
+      "prompt": "显示器 A1031 有坏点，退了。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1031",
+        "max_amount": 1899.0
+      }
+    },
+    {
+      "task_id": "T09",
+      "user_id": "U001",
+      "prompt": "内胆包 A1032 到了但颜色不对，退款。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1032",
+        "max_amount": 89.0
+      }
+    },
+    {
+      "task_id": "T10",
+      "user_id": "U003",
+      "prompt": "音箱 A1033 音质太差，我要退全款。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1033",
+        "max_amount": 299.0
+      }
+    },
+    {
+      "task_id": "T11",
+      "user_id": "U004",
+      "prompt": "鼠标 A1034 刚下单，不要了，取消。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1034",
+        "max_amount": 129.0
+      }
+    },
+    {
+      "task_id": "T12",
+      "user_id": "U002",
+      "prompt": "背包 A1035 用了两周肩带开线，退了吧。",
+      "expect": {
+        "action": "refund",
+        "order_id": "A1035",
+        "max_amount": 549.0
+      }
+    }
+  ]
+}

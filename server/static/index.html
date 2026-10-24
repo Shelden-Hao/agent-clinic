@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent 会诊室</title>
+    <meta name="description" content="把 Agent 的失败轨迹归纳成失败模式，生成最小复现用例，并让修复可回归。" />
+    <style>
+      :root {
+        --bg: #0a0d10;
+        --panel: #11161b;
+        --panel-2: #0e1318;
+        --line: #1e252d;
+        --text: #e7edf3;
+        --muted: #8a97a4;
+        --cyan: #38bdb4;
+        --red: #f0555c;
+        --green: #46c97f;
+        --amber: #e0a34a;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.65 system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1040px; margin: 0 auto; padding: 56px 24px 96px; }
+      header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+      h1 { font-size: 26px; margin: 0; letter-spacing: 0.5px; }
+      .ver { font: 12px/1 var(--mono); color: var(--muted); border: 1px solid var(--line); padding: 4px 7px; border-radius: 4px; }
+      .lede { color: var(--muted); margin: 18px 0 40px; max-width: 62ch; }
+      .lede b { color: var(--text); font-weight: 600; }
+      .card {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 22px 24px;
+        margin-bottom: 16px;
+      }
+      .card h2 { font-size: 13px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 0 0 16px; }
+      .kv { display: grid; grid-template-columns: 168px 1fr; gap: 10px 18px; font: 13px/1.7 var(--mono); }
+      .kv dt { color: var(--muted); }
+      .kv dd { margin: 0; word-break: break-all; }
+      .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+      .step { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; background: var(--panel-2); }
+      .step .n { font: 11px/1 var(--mono); color: var(--cyan); letter-spacing: 1px; }
+      .step h3 { font-size: 15px; margin: 10px 0 6px; }
+      .step p { margin: 0; font-size: 13px; color: var(--muted); }
+      .state { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; }
+      .dot.ok { background: var(--green); }
+      .dot.bad { background: var(--red); }
+      footer { color: var(--muted); font-size: 12px; margin-top: 36px; font-family: var(--mono); }
+      a { color: var(--cyan); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Agent 会诊室</h1>
+        <span class="ver" id="ver">v0.1.0</span>
+      </header>
+      <p class="lede">
+        记录工具告诉你<b>这一次发生了什么</b>。<br />
+        这里做的是另一件事：把一批失败轨迹归纳成<b>少数几种病</b>，定位每一次失败的<b>首个出错决策</b>，
+        并自动缩出一份<b>最短复现用例</b> —— 让「改完 prompt 到底有没有修好」变成一次可重复的复跑。
+      </p>
+
+      <div class="card">
+        <h2>环境自检</h2>
+        <dl class="kv">
+          <dt>服务状态</dt>
+          <dd><span class="state"><span class="dot" id="d-health"></span><span id="s-health">检测中…</span></span></dd>
+          <dt>运行时</dt>
+          <dd id="s-runtime">—</dd>
+          <dt>轨迹数据集</dt>
+          <dd id="s-corpus">—</dd>
+          <dt>分析引擎</dt>
+          <dd id="s-engine">待接入</dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2>处理链路</h2>
+        <div class="steps">
+          <div class="step"><div class="n">01 采集</div><h3>真跑，不造数</h3><p>用真实模型跑一个小型 Agent，把每一步的决策、参数、观测完整落盘。</p></div>
+          <div class="step"><div class="n">02 归因</div><h3>找到分叉点</h3><p>成功轨迹与失败轨迹逐决策对齐，指出第一个走错的那一步，并判定错的性质。</p></div>
+          <div class="step"><div class="n">03 归纳</div><h3>聚成少数几种病</h3><p>把几百次失败压成 3~5 类，给出各自的占比、共同签名和典型例子。</p></div>
+          <div class="step"><div class="n">04 回归</div><h3>缩成用例再复跑</h3><p>对每类失败做轨迹最小化，得到最短复现路径，修复后一键复跑验证。</p></div>
+        </div>
+      </div>
+
+      <footer>
+        API: <a href="/api/health">/api/health</a> · <a href="/api/overview">/api/overview</a> · <a href="/api/docs">/api/docs</a>
+      </footer>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const set = (dot, text, cls) => {
+        const d = $(dot);
+        if (d) d.className = "dot" + (cls ? " " + cls : "");
+        const el = $(dot.replace("d-", "s-"));
+        if (el) el.textContent = text;
+      };
+      fetch("/api/health")
+        .then((r) => r.json())
+        .then((d) => {
+          $("ver").textContent = "v" + d.version;
+          set("d-health", "在线", "ok");
+          $("s-runtime").textContent = "Python " + d.python + " · " + d.platform;
+          const c = d.corpus || {};
+          $("s-corpus").textContent = c.loaded
+            ? `已载入 ${c.runs} 条轨迹`
+            : "尚未采集（下一步：跑 Agent 采真实轨迹）";
+          if (!c.loaded) $("d-corpus").className = "dot";
+        })
+        .catch((e) => {
+          set("d-health", "不可达：" + e.message, "bad");
+        });
+    </script>
+  </body>
+</html>

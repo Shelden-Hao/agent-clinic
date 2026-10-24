@@ -13,3 +13,9 @@ Thumbs.db
 # 本地验收产物
 screenshots/
 _scratch/
+
+# 本地运行时
+.venv/
+runtime/
+__pycache__/
+*.pyc
