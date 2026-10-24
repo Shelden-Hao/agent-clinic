@@ -13,13 +13,18 @@ StepKind = Literal["tool_call", "final", "plan"]
 
 # 失败的八种性质。宁可多分一类，也不要塞进 unknown 里蒙混过去。
 ErrorKind = Literal[
-    "tool_error",        # 工具抛错 / 业务拒绝
-    "bad_argument",      # 参数缺失、类型错、取值非法
-    "wrong_tool",        # 选了不该选的工具，或该用的工具始终没被调用
-    "hallucinated_fact", # 结论里出现的数据在观测中不存在
-    "loop",              # 三步内重复同一动作
-    "context_lost",      # 用户已给出的信息被重新询问
-    "premature_answer",  # 关键信息未取就直接作答
+    "tool_error",             # 工具抛错 / 业务拒绝
+    "bad_argument",           # 参数缺失、类型错、取值非法
+    "wrong_tool",             # 选了不该选的工具，或该用的工具始终没被调用
+    "hallucinated_fact",      # 结论里出现的数据在观测中不存在
+    "loop",                   # 三步内重复同一动作
+    "context_lost",           # 用户已给出的信息被重新询问
+    "premature_answer",       # 关键信息未取就直接作答
+    "escalation_missed",      # 该转人工却自行处理
+    "over_escalation",        # 该自己处理却甩给人工
+    "asked_instead_of_acted", # 把「执行」变成了「反问用户」
+    "promised_but_not_done",  # 声称已办理，实际没调用工具
+    "no_action",              # 既没执行也没转人工也没追问
     "unknown",
 ]
 
@@ -31,6 +36,11 @@ _KIND_LABEL = {
     "loop": "原地绕圈",
     "context_lost": "上下文丢失",
     "premature_answer": "过早作答",
+    "escalation_missed": "该转人工没转",
+    "over_escalation": "过度转人工",
+    "asked_instead_of_acted": "只问不做",
+    "promised_but_not_done": "说了却没做",
+    "no_action": "没有动作",
     "unknown": "未归类",
 }
 

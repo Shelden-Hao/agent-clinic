@@ -65,7 +65,8 @@
       <div id="log"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js"></script>
+    <!-- SDK 本地托管：不依赖 CDN，弱网或被墙时采集不会整条链路失败 -->
+    <script src="/vendor/sdk/index.global.js"></script>
     <script type="module">
       import { runTask, judge } from "./agent.js";
 
@@ -106,6 +107,18 @@
 
       $("stop").onclick = () => abort?.abort();
 
+      // 自动化入口：?auto=1&version=v1&repeat=1&only=T01,T02&model=<id>
+      const qp = new URLSearchParams(location.search);
+      window.__lab = { done: 0, failed: 0, state: "idle", error: null };
+      if (qp.get("version")) $("version").value = qp.get("version");
+      if (qp.get("repeat")) $("repeat").value = qp.get("repeat");
+      if (qp.get("model") && usable.some((m) => m.id === qp.get("model"))) $("model").value = qp.get("model");
+      const only = (qp.get("only") || "").split(",").map((s) => s.trim()).filter(Boolean);
+      if (qp.get("auto") === "1" && usable.length) {
+        log(`<span class="warn">auto 模式：version=${$("version").value} repeat=${$("repeat").value} only=${only.join(",") || "全部"}</span>`);
+        setTimeout(() => $("run").click(), 300);
+      }
+
       $("run").onclick = async () => {
         const model = $("model").value;
         if (!model) return log(`<span class="bad">先选一个模型</span>`);
@@ -115,9 +128,11 @@
 
         abort = new AbortController();
         $("run").disabled = true; $("stop").disabled = false; $("s-state").textContent = "运行中";
+        window.__lab.state = "running";
 
+        const tasks = only.length ? boot.tasks.filter((t) => only.includes(t.task_id)) : boot.tasks;
         const queue = [];
-        for (const v of versions) for (const t of boot.tasks) for (let r = 0; r < repeat; r++) queue.push({ v, t, r });
+        for (const v of versions) for (const t of tasks) for (let r = 0; r < repeat; r++) queue.push({ v, t, r });
 
         for (const { v, t, r } of queue) {
           if (abort.signal.aborted) break;
@@ -138,6 +153,7 @@
             done++; tokens += run.usage.total_tokens;
             if (!verdict.success) failed++;
             $("s-done").textContent = done; $("s-fail").textContent = failed; $("s-token").textContent = tokens;
+            window.__lab.done = done; window.__lab.failed = failed;
             const steps = run.steps.filter((s) => s.kind === "tool_call").map((s) => s.ok ? s.tool : `${s.tool}!`).join(" → ");
             log(
               `<span class="${verdict.success ? "ok" : "bad"}">[${v}] ${t.task_id} #${r + 1} ${verdict.success ? "PASS" : "FAIL"}</span> ` +
@@ -151,6 +167,7 @@
         }
 
         $("run").disabled = false; $("stop").disabled = true; $("s-state").textContent = "已完成";
+        window.__lab.state = abort.signal.aborted ? "aborted" : "done";
         log(`<span class="dim">—— 结束：${done} 条，失败 ${failed} 条，共 ${tokens} tokens ——</span>`);
       };
 

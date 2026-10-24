@@ -125,6 +125,13 @@ def create_app() -> FastAPI:
         runs = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         return JSONResponse({"runs": runs})
 
+    @app.post("/api/lab/reset")
+    def lab_reset() -> JSONResponse:
+        path = RUNTIME_DIR / "collected.jsonl"
+        if path.exists():
+            path.unlink()
+        return JSONResponse({"total": 0})
+
     @app.get("/api/lab/count")
     def lab_count() -> JSONResponse:
         path = RUNTIME_DIR / "collected.jsonl"

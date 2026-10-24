@@ -229,15 +229,16 @@ export async function runTask({ cloud, model, task, world, systemPrompt, promptV
     const latency = Math.round(performance.now() - t0);
     totalTokens += res.usage?.total_tokens ?? 0;
 
-    if (res.content) {
-      steps.push({ i: steps.length + 1, kind: "thought", content: res.content.slice(0, 600), latency_ms: latency, tokens: res.usage?.total_tokens ?? 0 });
-    }
-
     if (!res.toolCalls.length) {
       finalContent = res.content || "";
       steps.push({ i: steps.length + 1, kind: "final", content: finalContent, latency_ms: latency });
       onStep?.(steps.at(-1));
       break;
+    }
+
+    // 只有「还会继续行动」的中间文本才算思考，避免最终答复被重复记录成两步
+    if (res.content) {
+      steps.push({ i: steps.length + 1, kind: "thought", content: res.content.slice(0, 600), latency_ms: latency, tokens: res.usage?.total_tokens ?? 0 });
     }
 
     messages.push({

@@ -1,0 +1,62 @@
+:root {
+  --bg: #0a0d10;
+  --panel: #10151a;
+  --panel-2: #0d1216;
+  --line: #1e252d;
+  --line-2: #2a333d;
+  --text: #e7edf3;
+  --muted: #8a97a4;
+  --dim: #5f6b78;
+  --cyan: #38bdb4;
+  --red: #f0555c;
+  --green: #46c97f;
+  --amber: #e0a34a;
+  --violet: #9d8cf5;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app { margin: 0; min-height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.7 system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--cyan); }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 48px 24px 120px; }
+
+.mono { font-family: var(--mono); }
+
+.eyebrow {
+  font: 600 11px/1 var(--mono);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 11px/1 var(--mono);
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  color: var(--muted);
+}
+
+.tag.bad { color: #ffb3b7; border-color: #4a2226; background: #1d1012; }
+.tag.ok { color: #a8e8c6; border-color: #1e4131; background: #0f1d16; }
+.tag.warn { color: #f0cd93; border-color: #45351d; background: #1c1609; }

@@ -1,0 +1,992 @@
+{
+  "generated_at": "2026-10-24T23:02:09+08:00",
+  "summary": {
+    "total": 48,
+    "failed": 27,
+    "fail_rate": 0.562,
+    "by_version": {
+      "v1": {
+        "total": 24,
+        "failed": 15,
+        "fail_rate": 0.625
+      },
+      "v2": {
+        "total": 24,
+        "failed": 12,
+        "fail_rate": 0.5
+      }
+    },
+    "models": [
+      "deepseek-v4-flash"
+    ],
+    "tasks": 12
+  },
+  "versions": [
+    {
+      "version": "v1",
+      "total": 24,
+      "failed": 15,
+      "fail_rate": 0.625,
+      "tokens": 92406,
+      "avg_steps": 4.6
+    },
+    {
+      "version": "v2",
+      "total": 24,
+      "failed": 12,
+      "fail_rate": 0.5,
+      "tokens": 121250,
+      "avg_steps": 4.2
+    }
+  ],
+  "flips": [
+    {
+      "task_id": "T01",
+      "from_ok": 0.0,
+      "to_ok": 1.0,
+      "delta": 1.0
+    },
+    {
+      "task_id": "T02",
+      "from_ok": 0.0,
+      "to_ok": 0.5,
+      "delta": 0.5
+    },
+    {
+      "task_id": "T03",
+      "from_ok": 1.0,
+      "to_ok": 1.0,
+      "delta": 0.0
+    },
+    {
+      "task_id": "T04",
+      "from_ok": 1.0,
+      "to_ok": 0.0,
+      "delta": -1.0
+    },
+    {
+      "task_id": "T05",
+      "from_ok": 0.5,
+      "to_ok": 0.0,
+      "delta": -0.5
+    },
+    {
+      "task_id": "T06",
+      "from_ok": 0.0,
+      "to_ok": 0.5,
+      "delta": 0.5
+    },
+    {
+      "task_id": "T07",
+      "from_ok": 0.0,
+      "to_ok": 0.5,
+      "delta": 0.5
+    },
+    {
+      "task_id": "T08",
+      "from_ok": 0.0,
+      "to_ok": 0.0,
+      "delta": 0.0
+    },
+    {
+      "task_id": "T09",
+      "from_ok": 1.0,
+      "to_ok": 1.0,
+      "delta": 0.0
+    },
+    {
+      "task_id": "T10",
+      "from_ok": 0.0,
+      "to_ok": 0.5,
+      "delta": 0.5
+    },
+    {
+      "task_id": "T11",
+      "from_ok": 1.0,
+      "to_ok": 1.0,
+      "delta": 0.0
+    },
+    {
+      "task_id": "T12",
+      "from_ok": 0.0,
+      "to_ok": 0.0,
+      "delta": 0.0
+    }
+  ],
+  "patterns": [
+    {
+      "id": "P1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "tool": "-",
+      "signature": "本可直接办理，却转给了人工",
+      "count": 15,
+      "share": 0.556,
+      "tasks": [
+        "T02",
+        "T04",
+        "T05",
+        "T07",
+        "T08",
+        "T12"
+      ],
+      "versions": {
+        "v1": 6,
+        "v2": 9
+      },
+      "run_ids": [
+        "T02-v1-1",
+        "T07-v1-1",
+        "T08-v1-1",
+        "T08-v1-2",
+        "T12-v1-1",
+        "T12-v1-2",
+        "T02-v2-1",
+        "T04-v2-1",
+        "T04-v2-2",
+        "T05-v2-1",
+        "T05-v2-2",
+        "T08-v2-1"
+      ],
+      "examples": [
+        "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+        "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本"
+      ],
+      "advice": "本可自动完成的动作被甩给了人工。根因通常是规程里只写了「什么情况要转人工」，没写「什么情况可以直接办」。建议补一份可直接执行的白名单条件。"
+    },
+    {
+      "id": "P2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "tool": "-",
+      "signature": "声称已办理，但没有任何对应的工具调用",
+      "count": 6,
+      "share": 0.222,
+      "tasks": [
+        "T01",
+        "T02",
+        "T05",
+        "T06",
+        "T07",
+        "T10"
+      ],
+      "versions": {
+        "v1": 3,
+        "v2": 3
+      },
+      "run_ids": [
+        "T01-v1-2",
+        "T02-v1-2",
+        "T05-v1-2",
+        "T06-v2-1",
+        "T07-v2-2",
+        "T10-v2-2"
+      ],
+      "examples": [
+        "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+        "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用"
+      ],
+      "advice": "答复里声称已经办理，但没有任何对应的工具调用。建议在收尾前增加一次自检：凡是声称完成的动作，必须能在本轮调用记录里找到。"
+    },
+    {
+      "id": "P3",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "tool": "-",
+      "signature": "信息已齐备，却把执行变成了反问",
+      "count": 4,
+      "share": 0.148,
+      "tasks": [
+        "T01",
+        "T07",
+        "T10"
+      ],
+      "versions": {
+        "v1": 4
+      },
+      "run_ids": [
+        "T01-v1-1",
+        "T07-v1-2",
+        "T10-v1-1",
+        "T10-v1-2"
+      ],
+      "examples": [
+        "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+        "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问"
+      ],
+      "advice": "必填信息已经齐全，Agent 却把执行变成了反问。建议明确写「信息齐备时必须直接执行动作，不得以向用户确认代替执行」。"
+    },
+    {
+      "id": "P4",
+      "kind": "no_action",
+      "label": "没有动作",
+      "tool": "-",
+      "signature": "任务要求执行动作，但整条轨迹没有产生任何动作",
+      "count": 2,
+      "share": 0.074,
+      "tasks": [
+        "T06"
+      ],
+      "versions": {
+        "v1": 2
+      },
+      "run_ids": [
+        "T06-v1-1",
+        "T06-v1-2"
+      ],
+      "examples": [
+        "任务要求转人工，但没有调用 escalate",
+        "任务要求转人工，但没有调用 escalate"
+      ],
+      "advice": "整条轨迹没有产生任何有效动作。通常不是理解问题，而是缺少「信息足够之后该做什么」的收尾指令。"
+    }
+  ],
+  "regression": {
+    "fixed": [
+      {
+        "id": "P3",
+        "label": "只问不做",
+        "signature": "信息已齐备，却把执行变成了反问",
+        "old": 0.167,
+        "new": 0.0,
+        "old_n": 4,
+        "new_n": 0,
+        "delta": -0.167
+      },
+      {
+        "id": "P4",
+        "label": "没有动作",
+        "signature": "任务要求执行动作，但整条轨迹没有产生任何动作",
+        "old": 0.083,
+        "new": 0.0,
+        "old_n": 2,
+        "new_n": 0,
+        "delta": -0.083
+      }
+    ],
+    "worse": [
+      {
+        "id": "P1",
+        "label": "过度转人工",
+        "signature": "本可直接办理，却转给了人工",
+        "old": 0.25,
+        "new": 0.375,
+        "old_n": 6,
+        "new_n": 9,
+        "delta": 0.125
+      }
+    ],
+    "from": "v1",
+    "to": "v2",
+    "net": -0.125
+  },
+  "fork": {
+    "task_id": "T02",
+    "good_run": "T02-v2-2",
+    "bad_run": "T02-v2-1",
+    "fork_at": 10,
+    "rows": [
+      {
+        "left": {
+          "step_index": 2,
+          "kind": "tool_call",
+          "tool": "get_order",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_order(order_id)"
+        },
+        "right": {
+          "step_index": 2,
+          "kind": "tool_call",
+          "tool": "get_order",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_order(order_id)"
+        },
+        "relation": "same"
+      },
+      {
+        "left": {
+          "step_index": 3,
+          "kind": "tool_call",
+          "tool": "search_policy",
+          "args": {
+            "query": "未到货 退款期限 拒收 退款金额规则"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "search_policy(query)"
+        },
+        "right": {
+          "step_index": 3,
+          "kind": "tool_call",
+          "tool": "search_policy",
+          "args": {
+            "query": "未收到货 仅退款 退款期限 可退金额"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "search_policy(query)"
+        },
+        "relation": "same"
+      },
+      {
+        "left": {
+          "step_index": 5,
+          "kind": "tool_call",
+          "tool": "get_user",
+          "args": {
+            "user_id": "U002"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_user(user_id)"
+        },
+        "right": {
+          "step_index": 5,
+          "kind": "tool_call",
+          "tool": "get_user",
+          "args": {
+            "user_id": "U002"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_user(user_id)"
+        },
+        "relation": "same"
+      },
+      {
+        "left": {
+          "step_index": 6,
+          "kind": "tool_call",
+          "tool": "get_logistics",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_logistics(order_id)"
+        },
+        "right": {
+          "step_index": 6,
+          "kind": "tool_call",
+          "tool": "get_logistics",
+          "args": {
+            "order_id": "A1025"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "get_logistics(order_id)"
+        },
+        "relation": "same"
+      },
+      {
+        "left": {
+          "step_index": 8,
+          "kind": "tool_call",
+          "tool": "search_policy",
+          "args": {
+            "query": "金卡会员 退款期限 几天 未签收 拒收流程"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "search_policy(query)"
+        },
+        "right": {
+          "step_index": 8,
+          "kind": "tool_call",
+          "tool": "search_policy",
+          "args": {
+            "query": "金卡会员 无理由退款期限 天数"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "search_policy(query)"
+        },
+        "relation": "same"
+      },
+      {
+        "left": {
+          "step_index": 10,
+          "kind": "tool_call",
+          "tool": "refund_order",
+          "args": {
+            "order_id": "A1025",
+            "amount": 469,
+            "reason": "用户改主意，未签收申请无理由退款（金卡会员，签收后15天内）"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "refund_order(amount,order_id,reason)"
+        },
+        "right": null,
+        "relation": "only_left"
+      },
+      {
+        "left": null,
+        "right": {
+          "step_index": 10,
+          "kind": "tool_call",
+          "tool": "escalate",
+          "args": {
+            "summary": "用户 U002（李昂，金卡会员）申请对订单 A1025（机械键盘 87 键，实付 469 元，已退款 0 元，可退 469 元）在未收货前无理由退款。订单归属与登录用户一致，物流状态为运输中。争议点：政策 P-REFUND-01 仅明确普通 7 天、银卡及以上 15 天、黑卡 30 天，未界定金卡期限，订单购买至今 5 天，需人工确认金卡期限适用及是否可在未收货状态直接发起仅退款。请人工审核后处理。"
+          },
+          "ok": true,
+          "error": null,
+          "content": "",
+          "signature": "escalate(summary)"
+        },
+        "relation": "only_right"
+      },
+      {
+        "left": {
+          "step_index": 11,
+          "kind": "final",
+          "tool": null,
+          "args": {},
+          "ok": true,
+          "error": null,
+          "content": "退款已成功办理 ✅\n\n- **订单号**：A1025（机械键盘 87 键）\n- **本次退款**：469 元\n- **累计已退**：469 元\n- **剩余可退**：0 元\n\n退款将按原支付渠道退回，具体到账时间以银行/支付渠道为准。\n\n另外提醒一下：包裹仍在运输中，麻烦您留意物流，**货到时请拒收**，以免产生额外的寄回运费。如拒收或运费方面有疑问，可以随时告诉我，我帮您转接人工处理。还有什么需要帮忙的吗？",
+          "signature": "final"
+        },
+        "right": {
+          "step_index": 11,
+          "kind": "final",
+          "tool": null,
+          "args": {},
+          "ok": true,
+          "error": null,
+          "content": "已为您转人工处理，工单号 **H1276**。\n\n小结一下：\n- 订单 A1025 归属已确认是您本人，金额清晰（可退 469 元），没有金额争议；\n- 卡点在于**政策未明确金卡会员的无理由退款期限**，需要人工确认后才能发起退款。\n\n人工客服会尽快跟进。同时提示一下：包裹目前仍在运输中，如果退款审核通过前您签收了，请保留商品及包装完好，以免影响后续处理。",
+          "signature": "final"
+        },
+        "relation": "same"
+      }
+    ],
+    "length_good": 7,
+    "length_bad": 7,
+    "task_prompt": "A1025 这个键盘我改主意了，还没到货，帮我退了吧。",
+    "diagnosis": {
+      "run_id": "T02-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 10,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 10,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    }
+  },
+  "diagnoses": {
+    "T01-v1-1": {
+      "run_id": "T01-v1-1",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "step_index": 5,
+      "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+      "confidence": 0.75,
+      "findings": [
+        {
+          "kind": "asked_instead_of_acted",
+          "label": "只问不做",
+          "step_index": 5,
+          "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T01-v1-2": {
+      "run_id": "T01-v1-2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 5,
+      "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 5,
+          "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T02-v1-1": {
+      "run_id": "T02-v1-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 8,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 8,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T02-v1-2": {
+      "run_id": "T02-v1-2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 7,
+      "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 7,
+          "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T05-v1-2": {
+      "run_id": "T05-v1-2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 5,
+      "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 5,
+          "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T06-v1-1": {
+      "run_id": "T06-v1-1",
+      "kind": "no_action",
+      "label": "没有动作",
+      "step_index": 8,
+      "evidence": "任务要求转人工，但没有调用 escalate",
+      "confidence": 0.7,
+      "findings": [
+        {
+          "kind": "no_action",
+          "label": "没有动作",
+          "step_index": 8,
+          "evidence": "任务要求转人工，但没有调用 escalate",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T06-v1-2": {
+      "run_id": "T06-v1-2",
+      "kind": "no_action",
+      "label": "没有动作",
+      "step_index": 8,
+      "evidence": "任务要求转人工，但没有调用 escalate",
+      "confidence": 0.7,
+      "findings": [
+        {
+          "kind": "no_action",
+          "label": "没有动作",
+          "step_index": 8,
+          "evidence": "任务要求转人工，但没有调用 escalate",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T07-v1-1": {
+      "run_id": "T07-v1-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 9,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 9,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T07-v1-2": {
+      "run_id": "T07-v1-2",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "step_index": 8,
+      "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+      "confidence": 0.75,
+      "findings": [
+        {
+          "kind": "asked_instead_of_acted",
+          "label": "只问不做",
+          "step_index": 8,
+          "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T08-v1-1": {
+      "run_id": "T08-v1-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 6,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 6,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T08-v1-2": {
+      "run_id": "T08-v1-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 8,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 8,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T10-v1-1": {
+      "run_id": "T10-v1-1",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "step_index": 7,
+      "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+      "confidence": 0.75,
+      "findings": [
+        {
+          "kind": "asked_instead_of_acted",
+          "label": "只问不做",
+          "step_index": 7,
+          "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T10-v1-2": {
+      "run_id": "T10-v1-2",
+      "kind": "asked_instead_of_acted",
+      "label": "只问不做",
+      "step_index": 8,
+      "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+      "confidence": 0.75,
+      "findings": [
+        {
+          "kind": "asked_instead_of_acted",
+          "label": "只问不做",
+          "step_index": 8,
+          "evidence": "信息已经齐全，本可以直接执行，Agent 却把动作变成了向用户反问",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T12-v1-1": {
+      "run_id": "T12-v1-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 9,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 9,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T12-v1-2": {
+      "run_id": "T12-v1-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 9,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 9,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T02-v2-1": {
+      "run_id": "T02-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 10,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 10,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T04-v2-1": {
+      "run_id": "T04-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T04-v2-2": {
+      "run_id": "T04-v2-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T05-v2-1": {
+      "run_id": "T05-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T05-v2-2": {
+      "run_id": "T05-v2-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T06-v2-1": {
+      "run_id": "T06-v2-1",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 6,
+      "evidence": "答复里声称已处理，但没有调用 escalate",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 6,
+          "evidence": "答复里声称已处理，但没有调用 escalate",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T07-v2-2": {
+      "run_id": "T07-v2-2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 6,
+      "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 6,
+          "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T08-v2-1": {
+      "run_id": "T08-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T08-v2-2": {
+      "run_id": "T08-v2-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 8,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 8,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T10-v2-2": {
+      "run_id": "T10-v2-2",
+      "kind": "promised_but_not_done",
+      "label": "说了却没做",
+      "step_index": 6,
+      "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+      "confidence": 0.8,
+      "findings": [
+        {
+          "kind": "promised_but_not_done",
+          "label": "说了却没做",
+          "step_index": 6,
+          "evidence": "答复里声称已经办理，但整条轨迹里没有一次 refund_order 调用",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T12-v2-1": {
+      "run_id": "T12-v2-1",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    },
+    "T12-v2-2": {
+      "run_id": "T12-v2-2",
+      "kind": "over_escalation",
+      "label": "过度转人工",
+      "step_index": 7,
+      "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "kind": "over_escalation",
+          "label": "过度转人工",
+          "step_index": 7,
+          "evidence": "该订单本可以直接退款，Agent 却选择了转人工，把可自动完成的动作变成了人工成本",
+          "severity": 3,
+          "recovered": false
+        }
+      ]
+    }
+  }
+}
