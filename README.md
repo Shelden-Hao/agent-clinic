@@ -57,7 +57,7 @@ v2 补上了「什么情况必须转人工」的规程，于是 v1 那批「把�
 
 ---
 
-## 九个能力
+## 十二个能力
 
 ### 1. 分叉点定位（L3）
 
@@ -256,6 +256,97 @@ refund_order(order_id, amount…)  ◀      —
 
 ---
 
+### 10. 多轮会话（单轮测不出的那一层）
+
+单轮诊断有个天然盲区：它把每条轨迹当成一次独立的、自带全部信息的任务。
+真实的 Agent 不是这样工作的。
+
+本项目跑真多轮会话，两个物理事实不可省略：
+
+```js
+const tools = makeTools(clone(world));        // 整场会话只建一次 —— 第 1 轮退的钱，第 2 轮查出来是已退
+const messages = [{ role: "system", ... }];   // 一路传下去 —— 第 2 轮用户不再重复订单号
+```
+
+少任何一个，「多轮」就退化成「编号不同的单轮」。
+
+三类**只有多轮才会出现**的病：
+
+| 病种 | 判据 | 修复方向 |
+|---|---|---|
+| **纠正被忽略** | 用户改口并给出新标识符，但本轮所有调用都没触及新目标 | 加一条「改口即切换」规程 |
+| **跨轮丢失** | 历史给过的标识符，本轮被重新索要，且整轮没有任何调用 | 加一条「会话内标识符复用」规程 |
+| **重复副作用** | 同一写操作在两轮成功执行，用户没要求第二次 | 加一条「副作用去重」规程 |
+
+前两类改的是「记不记得住、跟不跟得上」，和单轮病「这一次怎么决策」不是一回事，
+所以**分开记，不互相覆盖**——一个轮次可以既犯单轮病又犯跨轮病。
+
+**最有用的一个数字是漏检率**：
+
+```
+盲区轮次 = 「被历史害了」且失败的轮次        漏检率 = 盲区 / 总失败轮
+```
+
+这类轮次单独测会**通过**——单轮测试给它一个假绿灯。
+不是漏掉了一些样本，而是那部分样本会给出错误结论。
+
+另外刻意并排两个成功率：**按轮算** vs **按会话算**。
+一场 3 轮会话挂 1 轮，按轮是 67%，按会话是 0 —— 用户真实的感受是后者。
+
+### 11. 实时上报与 SDK（边跑边诊）
+
+「导出 JSON 再上传」是事后取证：你得先跑完、先导出、先想起来要做这件事。
+实时上报是失败发生的那一刻就已经在台上。
+
+```js
+const clinic = new Clinic({ endpoint, key });
+const trace  = clinic.trace({ taskId: "T01", promptVersion: "v2", taskPrompt: "…" });
+
+// 关键就这一行：包一层工具，之后每次调用自动上报
+const tools = clinic.wrap(trace, { get_order, refund_order, escalate });
+
+trace.end({ success: false, failReason: "没有发起退款" });
+```
+
+三条刻意的设计：
+
+- **绝不阻塞业务。** 上报失败、超时、5xx 全部吞掉并重试两次。能让业务挂掉的可观测性工具不配接在业务里。
+- **`wrap()` 比手工埋点重要。** 手工埋点意味着总有人忘记埋，漏掉的恰好是失败那几步。
+- **不替你判断成败。** SDK 只记录，`success` 必须由调用方给 —— 从「工具有没有报错」推成败，会给你一条全绿却什么都没做的轨迹。
+
+两段上报：每步发轻量事件（参数键 + 观测摘要）供实时流滚动，整条在 `end()` 时发完整内容。
+分开是为了流上的延迟足够低 —— 每步传几 KB 的话，长轨迹会把流拖成幻灯片。
+
+前端 `/live` 用 SSE 接收，边进边诊。没接 SDK 的人可以点「回放样本」看仓库里的真实轨迹
+（事件上标 `样本回放`，不冒充实时数据）。
+
+### 12. Prompt 版本管理（改了什么、为什么）
+
+诊断的终点不是「你有 4 类病」，而是「下一版该怎么写」。
+如果版本管理只是个文本框，这条路就断在最后一步。
+
+**每条新增规则必须带来源：**
+
+```
+# 追加规程（依据 v2 的诊断结论，2 条）
+[来源:pattern:over_escalation] 过度转人工（15 次）
+- 以下情形必须直接办理，不得转人工：在受理期限内、金额未超上限、订单归属校验通过。
+```
+
+那个 `[来源:...]` 标记是刻意的冗余：prompt 是给模型看的，这一行是给人看的。
+等版本验定稿时删掉即可，判断已经做完了。
+
+三条不做的：
+
+- **不改基线版。** 只在末尾追加。同时改旧规则又加新规则，就永远说不清是谁起的作用。
+- **不自动优化 prompt。** 文本质量不是规则引擎能保证的事；声称能自动优化，结果是输出不可追责。
+- **草稿的失败率是空的，不是 0%。** 「没测过」和「测了全挂」是两件事。
+
+diff 按**句**对齐而不是按行：v1 是一整段、v2 是五条规则，按行只会说「全改了」，
+按句才能说出「3 句变成 7 句：1 句相同、2 句改写、4 句新增」。
+
+---
+
 ## 数据是真的，而且可复查
 
 ```
@@ -277,8 +368,8 @@ refund_order(order_id, amount…)  ◀      —
 
 ```
 后端   Python 3.11+ / FastAPI / uvicorn     （单一端口，同时托管前端与此 API）
-前端   Vue 3 + TypeScript + Vite            （5 个路由、手写 40 行 hash 路由，零额外依赖）
-诊断   analysis/  纯函数库，32 个单测
+前端   Vue 3 + TypeScript + Vite            （9 个路由、手写 60 行 hash 路由，零额外依赖）
+诊断   analysis/  纯函数库，84 个单测
 采集   server/static/lab/  浏览器端 ReAct 循环，SDK 本地托管（不依赖 CDN）
 发布   WorkBuddy Sites（Python HTTP 服务）
 ```
@@ -296,6 +387,8 @@ minimize.py   因果链最小化 → 最小复现用例
 evaluate.py   7 个规则评分器
 ingest.py     4 种外部格式归一化
 regress.py    回归验收：这批用例还过不过
+session.py    多轮会话：3 类跨轮病 + 单轮测试漏检率
+promptlib.py  Prompt 版本：血缘 / 句级 diff / 从诊断生草稿
 build_report.py  把以上编译成一份静态快照
 ```
 
@@ -315,7 +408,10 @@ cd web && npm install && npm run build    # 产物直接落到 server/static/
 python collector/build_world.py
 python tools/make_samples.py
 python analysis/build_report.py
-python -m unittest discover -s tests
+python -m unittest discover -s tests      # 84 个
+
+# 多轮会话采集（走线上，需先部署）
+node tools/drive-session.mjs --version both --repeat 2 --out runtime/sessions.json
 
 # 端到端验收（真浏览器点一遍）
 node tools/e2e.mjs
@@ -339,6 +435,20 @@ GET  /api/experiments           逐任务实验矩阵（翻转判定 + 稳定性
 GET  /api/review                复核队列（?stats_only=1 只取统计）
 POST /api/review/{run_id}       提交复核：确认 / 改判（需理由）/ 驳回
 DELETE /api/review/{run_id}     撤销复核
+GET  /api/sessions              多轮会话列表 + 会话级汇总
+GET  /api/sessions/{id}         单场会话：逐轮 + 跨轮发现 + 依赖标签
+GET  /api/sessions/scenarios    会话场景定义（每个场景测什么）
+GET  /api/stream/info           实时流自述（能力与限制）
+POST /api/stream/step           SDK 单步上报
+POST /api/stream/trace          SDK 整条轨迹上报，返回现场诊断
+GET  /api/stream/feed           SSE 推送
+POST /api/stream/replay         回放仓库内真实轨迹（演示用）
+GET  /api/prompts               版本总览（血缘 + 体检）
+GET  /api/prompts/diff?a=&b=    两版句级对照
+GET  /api/prompts/compose/sources  可用来生成新版本的全部依据
+POST /api/prompts/compose       按选中的依据生成草稿版本
+PATCH /api/prompts/{id}         编辑版本（每次编辑落一条 changelog）
+GET  /sdk/agent-clinic.js       零依赖上报 SDK
 GET  /api/docs                  OpenAPI 文档
 ```
 
@@ -355,6 +465,10 @@ GET  /api/docs                  OpenAPI 文档
 - 目前只覆盖「工具调用型 Agent」；纯对话型 Agent 的失败归因不在范围内。
 - 实验矩阵与复核队列都是**单机单文件**实现（`data/reviews.json` + `data/regression.json`），
   没有多用户、没有并发锁。它够用在一台机器上给一个人看结论，不够做团队协作。
+- **实时流是单进程内存缓冲**，多副本部署时各副本各看各的，只保留最近 400 条事件。
+- 会话级结论的样本量比单轮更小；它回答「哪一类交互会出问题」，不回答「出问题的概率」。
+- 跨轮检测只用语言标记与结构化标识符，**不做语义连贯性判断** —— 措辞超出标记集合就会漏报。
+- Prompt 版本管理**不自动优化文本**，也不改基线版的任何一行。
 
 ---
 
@@ -366,17 +480,19 @@ collector/         被测世界与任务集的构造脚本
 data/              世界数据、任务集、prompt 版本、真实轨迹快照、报告快照、接入样例
 docs/              设计决策、算法边界、接入指南
 server/            FastAPI 应用与静态资源
-server/static/lab/ 浏览器端真实采集台
-web/               Vue 3 + TS 前端源码（7 个视图）
-tests/             诊断引擎、最小化、评分、接入、回归、实验、复核的单元测试（59 个）
+server/static/lab/ 浏览器端真实采集台（单轮 collect.html / 多轮 session.html）
+sdk/               零依赖上报 SDK（浏览器 + Node 18+）
+web/               Vue 3 + TS 前端源码（11 个视图）
+tests/             诊断引擎、最小化、评分、接入、回归、实验、复核、会话、版本的单元测试（84 个）
 submission/        投稿截图（3 张主图 + 7 张备选，由 tools/submission.mjs 生成）
 tools/             采集驱动、样例生成、截图、端到端验收
 ```
 
-五份文档值得单独看：
+六份文档值得单独看：
 
 - [设计决策与取舍](docs/01-设计决策与取舍.md) —— 放弃过什么，以及为什么
 - [算法说明](docs/02-算法说明.md) —— 六个算法各自在什么时候会算错
 - [接入指南](docs/03-接入指南.md) —— 四种格式的字段映射与常见坑
 - [实验对账与人工复核](docs/04-实验对账与人工复核.md) —— 为什么失败率不够，以及签字的边界在哪
 - [投稿材料](docs/05-投稿材料.md) —— 截图、作品说明、60 秒自证清单、社媒文案
+- [多轮会话与版本管理](docs/06-多轮会话与版本管理.md) —— 跨轮病的判据与失效边界、为什么每行改动都要来源

@@ -21,6 +21,10 @@ const ROUTES = [
   { name: "05-patterns", hash: "#/patterns" },
   { name: "06-review", hash: "#/review" },
   { name: "07-intake", hash: "#/intake" },
+  { name: "08-sessions", hash: "#/sessions" },
+  { name: "09-session-detail", hash: "#/sessions/S01-v1-1" },
+  { name: "10-prompts", hash: "#/prompts" },
+  { name: "11-live", hash: "#/live" },
 ];
 
 await fs.mkdir(outDir, { recursive: true });

@@ -95,6 +95,13 @@ a { color: var(--cyan); }
 .nav a.on { background: #111a1e; color: var(--text); border-color: #1d2b30; }
 .nav a.on i { color: #5c8b88; }
 
+/* 分组标题。刻意做得很弱：它是路标，不该和导航项抢注意力 */
+.nav-g {
+  font: 9.5px/1 var(--mono); letter-spacing: 1.6px; text-transform: uppercase;
+  color: #46525e; padding: 14px 12px 6px;
+}
+.nav-g:first-child { padding-top: 2px; }
+
 .side-foot { margin-top: auto; font: 10.5px/1.7 var(--mono); color: var(--dim); padding: 0 6px; }
 .side-foot a { color: var(--dim); text-decoration: none; border-bottom: 1px dotted #2a333d; }
 .side-foot a:hover { color: var(--cyan); }
@@ -133,6 +140,7 @@ a { color: var(--cyan); }
   .nav { flex-direction: row; overflow-x: auto; min-width: 0; flex: 1 1 0; padding-bottom: 2px; }
   .nav a { flex: 0 0 auto; }
   .nav a i { display: none; }
+  .nav-g { display: none; }
   .side-foot { display: none; }
   .main { padding: 24px 16px 80px; }
 }

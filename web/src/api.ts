@@ -452,6 +452,227 @@ async function jsend<T>(url: string, body: unknown, method = "POST"): Promise<T>
   return res.json();
 }
 
+// ── 多轮会话 ────────────────────────────────────────────────────────────────
+
+export interface SessionFinding {
+  kind: string;
+  label: string;
+  turn_index: number;
+  severity: number;
+  evidence: string;
+  confidence: number;
+  ids: string[];
+  fix: string;
+}
+
+export interface SessionTurn {
+  turn_index: number;
+  user: string;
+  success: boolean;
+  success_known: boolean;
+  expect: Record<string, unknown>;
+  actual: Record<string, unknown>;
+  fail_reason: string | null;
+  tokens: number;
+  final_content: string;
+  dependency: "needs_history" | "harmed_by_history" | "independent" | null;
+  grounded: boolean;
+  single_kind: string | null;
+  cross_kinds: string[];
+  steps: Step[];
+}
+
+export interface SessionRow {
+  session_id: string;
+  scenario_id: string;
+  version: string;
+  goal: string;
+  model: string;
+  turns: number;
+  steps: number;
+  tokens: number;
+  success: boolean;
+  failed_turns: number[];
+  cross_kinds: string[];
+  cross_labels: string[];
+  dependency: string[];
+}
+
+export interface SessionSummary {
+  sessions: number;
+  turns: number;
+  session_success: number;
+  session_success_rate: number;
+  turn_success_rate: number;
+  failed_turns: number;
+  blind_spot_turns: number;
+  blind_spot_rate: number;
+  needs_history_turns: number;
+  harmed_turns: number;
+  progression: { turn: number; n: number; failed: number; rate: number }[];
+  kinds: { kind: string; label: string; count: number; note: string }[];
+  tags: { tag: string; label: string; count: number }[];
+  caveat: string;
+}
+
+export interface SessionList {
+  ready: boolean;
+  reason?: string;
+  summary: SessionSummary | null;
+  sessions: SessionRow[];
+  count?: number;
+}
+
+export interface SessionDetail {
+  session_id: string;
+  scenario_id: string;
+  version: string;
+  goal: string;
+  model: string;
+  started_at: string;
+  user_id: string;
+  success: boolean;
+  turns: SessionTurn[];
+  findings: SessionFinding[];
+  patches: { kind: string; label: string; text: string }[];
+  caveat: string;
+}
+
+export interface Scenario {
+  scenario_id: string;
+  label: string;
+  goal: string;
+  tests: string;
+  note: string;
+  user_id: string;
+  turns: { user: string; expect: Record<string, unknown> }[];
+}
+
+// ── 实时流 ──────────────────────────────────────────────────────────────────
+
+export interface StreamInfo {
+  ready: boolean;
+  key_required: boolean;
+  rate_limit_per_min: number;
+  buffer: number;
+  subscribers: number;
+  endpoints: Record<string, string>;
+  sdk: { url: string; note: string };
+  limits: string[];
+}
+
+export interface StreamEvent {
+  type: "step" | "trace" | "hello";
+  source?: "sdk" | "replay";
+  at?: string;
+  run_id?: string;
+  task_id?: string;
+  version?: string;
+  model?: string;
+  success?: boolean;
+  success_known?: boolean;
+  steps?: number;
+  kind?: string;
+  kind_label?: string;
+  confidence?: number;
+  evidence?: string;
+  tools?: string[];
+  step?: {
+    i: number;
+    kind: string;
+    tool: string | null;
+    args: Record<string, unknown>;
+    ok: boolean;
+    error: string | null;
+    content: string | null;
+    observation_brief: string | null;
+    latency_ms: number;
+  };
+  buffer?: number;
+}
+
+// ── Prompt 版本 ─────────────────────────────────────────────────────────────
+
+export interface PromptSource {
+  kind: string;
+  kind_label: string;
+  ref: string;
+  label: string;
+  evidence: string;
+}
+
+export interface PromptVersion {
+  id: string;
+  label: string;
+  system: string;
+  note: string;
+  parent: string | null;
+  created_at: string;
+  status: "active" | "draft" | "archived";
+  status_label: string;
+  changelog: string[];
+  sources: PromptSource[];
+  lineage: string[];
+  stats: {
+    runs: number;
+    ok: number;
+    fail_rate: number | null;
+    kinds: { kind: string; label: string; count: number }[];
+    measured: boolean;
+  };
+}
+
+export interface PromptOverview {
+  versions: PromptVersion[];
+  count: number;
+  active: string[];
+  drafts: string[];
+  headline: string;
+  caveat: string;
+}
+
+export interface DiffRow {
+  op: "equal" | "insert" | "delete" | "replace";
+  a_line: number | null;
+  b_line: number | null;
+  a: string | null;
+  b: string | null;
+}
+
+export interface PromptDiff {
+  a: string;
+  b: string;
+  a_label: string;
+  b_label: string;
+  stats: {
+    added: number;
+    removed: number;
+    changed: number;
+    lines_a: number;
+    lines_b: number;
+    sentences_a: number;
+    sentences_b: number;
+  };
+  rows: DiffRow[];
+  same: boolean;
+  note: string;
+}
+
+export interface ComposeSources {
+  single: {
+    kind: string;
+    label: string;
+    count: number;
+    tasks: string[];
+    advice: string;
+    patch: string;
+    recommended: boolean;
+  }[];
+  cross: { kind: string; label: string; count: number; sessions: string[]; patch: string }[];
+  overrides: { run_id: string; from: string; to: string; reason: string }[];
+  note: string;
+}
+
 export const api = {
   overview: () => jget<Report>("/api/overview"),
   catalog: () => jget<Report["catalog"]>("/api/catalog"),
@@ -488,4 +709,35 @@ export const api = {
     ),
   cancelReview: (runId: string) =>
     jsend<{ ok: boolean; total: number }>(`/api/review/${encodeURIComponent(runId)}`, null, "DELETE"),
+
+  // 多轮会话
+  sessions: () => jget<SessionList>("/api/sessions"),
+  session: (id: string) => jget<SessionDetail>(`/api/sessions/${encodeURIComponent(id)}`),
+  scenarios: () => jget<{ scenarios: Scenario[] }>("/api/sessions/scenarios"),
+
+  // 实时流
+  streamInfo: () => jget<StreamInfo>("/api/stream/info"),
+  replayStream: (count = 5, gap = 0.45) =>
+    jsend<{ ok: boolean; replayed: number; events: number; note: string }>("/api/stream/replay", {
+      count,
+      gap,
+    }),
+
+  // Prompt 版本
+  prompts: () => jget<PromptOverview>("/api/prompts"),
+  prompt: (id: string) => jget<PromptVersion>(`/api/prompts/${encodeURIComponent(id)}`),
+  promptDiff: (a: string, b: string) =>
+    jget<PromptDiff>(`/api/prompts/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`),
+  composeSources: () => jget<ComposeSources>("/api/prompts/compose/sources"),
+  compose: (body: {
+    base: string;
+    kinds?: string[];
+    cross_kinds?: string[];
+    label?: string;
+    note?: string;
+  }) => jsend<{ ok: boolean; version: PromptVersion; lineage: string[] }>("/api/prompts/compose", body),
+  editPrompt: (
+    id: string,
+    body: { system?: string; label?: string; note?: string; status?: string; changelog_entry?: string },
+  ) => jsend<{ ok: boolean; version: PromptVersion }>(`/api/prompts/${encodeURIComponent(id)}`, body, "PATCH"),
 };

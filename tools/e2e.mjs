@@ -222,8 +222,66 @@ t = await bodyText();
 check("切换模式刷新详情", t.includes("修复方向"));
 await page.screenshot({ path: `${outDir}/patterns.png`, fullPage: true });
 
-// ── 8. 移动端 ──
-console.log("\n[8] 移动端视口");
+// ── 8. 多轮会话 ──
+console.log("\n[8] 多轮会话");
+await page.setViewportSize({ width: 1440, height: 980 });
+await page.goto(base + "#/sessions", { waitUntil: "networkidle" });
+await page.waitForTimeout(1100);
+let st = await bodyText();
+check("出现漏检率结论", /单轮测试测不出来/.test(st));
+check("并排两种成功率", st.includes("按轮算") && st.includes("按会话算"));
+check("出现逐轮递进", st.includes("第几轮开始崩"));
+check("出现逐场景对账", st.includes("逐场景对账"));
+check("列出会话入口", (await page.locator("a.sr").count()) > 0, `${await page.locator("a.sr").count()} 场`);
+await page.screenshot({ path: `${outDir}/sessions.png`, fullPage: true });
+
+// 下钻到单场会话
+const firstSession = await page.locator("a.sr").first().getAttribute("href");
+await page.goto(base + firstSession, { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+st = await bodyText();
+check("会话详情显示逐轮", st.includes("逐轮发生了什么"));
+check("会话详情给出判定口径", st.includes("判定口径"));
+check("会话详情标出依赖标签", /离开历史就做不对|被历史害了|自带完整信息/.test(st));
+await page.screenshot({ path: `${outDir}/session-detail.png`, fullPage: true });
+
+// ── 9. Prompt 版本 ──
+console.log("\n[9] Prompt 版本");
+await page.goto(base + "#/prompts", { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+st = await bodyText();
+check("出现版本墙", (await page.locator(".vcard").count()) >= 2, `${await page.locator(".vcard").count()} 版`);
+check("草稿标为未测", st.includes("未测") || st.includes("草稿"));
+check("说明不自动优化", st.includes("不自动优化"));
+
+// 两版对比
+await page.locator(".tab", { hasText: "两版对比" }).click();
+await page.waitForTimeout(1100);
+check("diff 出结果", (await page.locator(".drow").count()) >= 3, `${await page.locator(".drow").count()} 行`);
+check("diff 标出改写与新增", /改写|新增/.test(await bodyText()));
+await page.screenshot({ path: `${outDir}/prompts-diff.png`, fullPage: true });
+
+// 从诊断生成下一版
+await page.locator(".tab", { hasText: "从诊断生成" }).click();
+await page.waitForTimeout(1000);
+check("生成器列出可修的病种", (await page.locator(".citem").count()) >= 2);
+check("生成器标出推荐项", (await page.locator(".rec").count()) >= 1);
+await page.screenshot({ path: `${outDir}/prompts-compose.png`, fullPage: true });
+
+// ── 10. 实时流 ──
+console.log("\n[10] 实时流");
+await page.goto(base + "#/live", { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+check("显示连接状态", /已连接|自动重连/.test(await bodyText()));
+await page.locator("button", { hasText: "回放样本" }).click();
+await page.waitForTimeout(2600);
+check("回放后有事件进来", (await page.locator(".lrun").count()) > 0, `${await page.locator(".lrun").count()} 条`);
+check("标注了样本回放", (await bodyText()).includes("样本回放"));
+check("给出两行接入代码", (await bodyText()).includes("clinic.wrap"));
+await page.screenshot({ path: `${outDir}/live.png`, fullPage: true });
+
+// ── 11. 移动端 ──
+console.log("\n[11] 移动端视口");
 await page.setViewportSize({ width: 390, height: 844 });
 for (const [label, hash] of [
   ["首页", "#/"],
@@ -231,6 +289,10 @@ for (const [label, hash] of [
   ["轨迹浏览器", "#/runs"],
   ["失败模式", "#/patterns"],
   ["复核队列", "#/review"],
+  ["多轮会话", "#/sessions"],
+  ["多轮详情", "#/sessions/S01-v1-1"],
+  ["Prompt 版本", "#/prompts"],
+  ["实时流", "#/live"],
 ]) {
   await page.goto(base + hash, { waitUntil: "networkidle" });
   await page.waitForTimeout(700);
