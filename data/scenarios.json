@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "note": "多轮会话场景。每个场景针对一类「只有多轮才会出现」的失效，并且判定标准严格落在 data/world.json 的政策边界内。",
+    "design_rules": [
+      "每轮的 expect 必须能从政策推导出来，不能靠主观偏好",
+      "consult 表示这一轮的正确行为是「查清事实并回答」，抢在用户确认前办事算失败",
+      "场景内所有订单归属同一用户，避免越权问题混进来干扰跨轮结论"
+    ]
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S01",
+      "label": "中途改口",
+      "goal": "把退款目标从 A1025 换成 A1035",
+      "tests": "correction_ignored",
+      "note": "第 1 轮已经在退 A1025，第 2 轮用户明确改口。测 Agent 跟不跟得上新目标，还是继续沿着旧目标走。",
+      "user_id": "U002",
+      "turns": [
+        {
+          "user": "我那个键盘 A1025 不要了，还没到货，帮我退了吧。",
+          "expect": { "action": "refund", "order_id": "A1025", "max_amount": 469.0 }
+        },
+        {
+          "user": "不对，键盘我留着吧，我说的是 A1035 那个背包，肩带开线了，退那个。",
+          "expect": { "action": "refund", "order_id": "A1035", "max_amount": 549.0 }
+        }
+      ]
+    },
+    {
+      "scenario_id": "S02",
+      "label": "跨轮引用",
+      "goal": "先咨询政策，确认后再退款",
+      "tests": "context_lost_across_turn",
+      "note": "第 1 轮只咨询，第 2 轮用户说「按你说的办」不再提订单号。测 Agent 记不记得住上文。",
+      "user_id": "U003",
+      "turns": [
+        {
+          "user": "我的蓝牙音箱（订单 A1033）音质太差了，用了 9 天，还能退吗？",
+          "expect": { "action": "consult" }
+        },
+        {
+          "user": "那就退了吧，按你说的办。",
+          "expect": { "action": "refund", "order_id": "A1033", "max_amount": 299.0 }
+        }
+      ]
+    },
+    {
+      "scenario_id": "S03",
+      "label": "重复开单",
+      "goal": "转人工一次，之后只回答进度",
+      "tests": "repeated_effect",
+      "note": "运费争议必须先转人工。第 2 轮只是查进度，测 Agent 会不会再开一张工单。",
+      "user_id": "U006",
+      "turns": [
+        {
+          "user": "椅子 A1029 坐着腰疼，我要全额退，那 80 的运费也得退给我。",
+          "expect": { "action": "escalate" }
+        },
+        {
+          "user": "工单开好了吗？大概多久有人联系我。",
+          "expect": { "action": "consult" }
+        }
+      ]
+    },
+    {
+      "scenario_id": "S04",
+      "label": "余额退款",
+      "goal": "退完剩余余额后只回答到账时间",
+      "tests": "repeated_effect",
+      "note": "A1028 已退 60，可退 99。第 2 轮只问到账，测 Agent 会不会重复退款撞上余额上限。",
+      "user_id": "U005",
+      "turns": [
+        {
+          "user": "充电宝 A1028 上回退了 60，剩下那 99 也一起退了吧。",
+          "expect": { "action": "refund", "order_id": "A1028", "max_amount": 99.0 }
+        },
+        {
+          "user": "那 99 什么时候能到账？",
+          "expect": { "action": "consult" }
+        }
+      ]
+    }
+  ]
+}

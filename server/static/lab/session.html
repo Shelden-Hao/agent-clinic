@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>多轮会话采集 · Agent 会诊室</title>
+    <style>
+      :root {
+        --bg: #0a0d10; --panel: #11161b; --line: #1e252d; --text: #e7edf3; --muted: #8a97a4;
+        --cyan: #38bdb4; --red: #f0555c; --green: #46c97f; --amber: #e0a34a;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.6 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+      .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+      button { background: var(--cyan); color: #04211f; border: 0; border-radius: 7px; padding: 9px 18px; font: 600 13px/1 system-ui; cursor: pointer; }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+      button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+      select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; font: 13px var(--mono); }
+      .stats { display: flex; gap: 26px; margin: 18px 0; font: 13px var(--mono); color: var(--muted); flex-wrap: wrap; }
+      .stats b { color: var(--text); font-size: 18px; display: block; }
+      #log { background: #06090b; border: 1px solid var(--line); border-radius: 8px; padding: 14px; font: 12px/1.75 var(--mono); height: 500px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+      .ok { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--amber); } .dim { color: var(--muted); }
+      .turn { color: #7fb2d9; }
+      .note { margin-top: 16px; font-size: 12px; color: var(--muted); line-height: 1.8; }
+      .note b { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>多轮会话采集</h1>
+      <p class="sub">
+        每场会话在浏览器里真跑，各轮<b>共享世界状态与对话历史</b> —— 第 1 轮退掉的钱，第 2 轮查出来就是已退。
+        这是「多轮」和「把三条轨迹粘一起」的全部区别。
+      </p>
+
+      <div class="bar">
+        <select id="model"></select>
+        <select id="version">
+          <option value="v1">v1 基线版</option>
+          <option value="v2">v2 规范版</option>
+          <option value="both">v1 + v2（对比）</option>
+        </select>
+        <select id="repeat">
+          <option value="1">每场景 1 次</option>
+          <option value="2">每场景 2 次</option>
+          <option value="3">每场景 3 次</option>
+        </select>
+        <button id="run">开始采集</button>
+        <button id="dump" class="ghost">导出会话</button>
+        <button id="stop" class="ghost" disabled>中止</button>
+      </div>
+
+      <div class="stats">
+        <div><b id="s-done">0</b>会话</div>
+        <div><b id="s-turn">0</b>轮次</div>
+        <div><b id="s-fail">0</b>失败轮</div>
+        <div><b id="s-token">0</b>tokens</div>
+        <div><b id="s-state">待开始</b>状态</div>
+      </div>
+
+      <div id="log"></div>
+
+      <p class="note">
+        <b>为什么每轮单独判定：</b>会话的成功不等于每轮成功，反过来也不成立。
+        第 2 轮失败但第 1 轮成功，恰恰是跨轮问题的典型形态 —— 压成一个布尔值就看不见了。
+      </p>
+    </div>
+
+    <script src="/vendor/sdk/index.global.js"></script>
+    <script type="module">
+      import { runSession } from "./agent.js";
+
+      const $ = (id) => document.getElementById(id);
+      const logEl = $("log");
+      let abort = null;
+      let doneS = 0, doneT = 0, failed = 0, tokens = 0;
+
+      function log(html) {
+        logEl.innerHTML += html + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      const boot = await fetch("/api/lab/bootstrap").then((r) => r.json());
+      const cloud = WorkBuddyCloud.createWorkBuddyCloud({
+        endpoint: boot.publicConfig.endpoint,
+        oauthRelayBaseUrl: boot.publicConfig.oauthRelayBaseUrl,
+        publishableKey: boot.publicConfig.publishableKey,
+      });
+
+      let models = [];
+      try {
+        models = await cloud.llm.models.list();
+      } catch (e) {
+        log(`<span class="bad">模型列表获取失败：${e.message}</span>`);
+      }
+      const usable = models.filter((m) => m.disabled !== true);
+      for (const m of usable) {
+        const o = document.createElement("option");
+        o.value = m.id;
+        o.textContent = `${m.name ?? m.id}${m.supportsToolCall ? " · tools" : ""}`;
+        $("model").appendChild(o);
+      }
+      const scenarios = boot.scenarios || [];
+      log(`<span class="dim">场景 ${scenarios.length} 个（共 ${scenarios.reduce((n, s) => n + s.turns.length, 0)} 轮）；可用模型 ${usable.length} 个</span>`);
+      if (!scenarios.length) log(`<span class="bad">data/scenarios.json 缺失或为空</span>`);
+
+      $("stop").onclick = () => abort?.abort();
+
+      const qp = new URLSearchParams(location.search);
+      window.__lab = { done: 0, turns: 0, failed: 0, state: "idle", error: null };
+      if (qp.get("version")) $("version").value = qp.get("version");
+      if (qp.get("repeat")) $("repeat").value = qp.get("repeat");
+      if (qp.get("model") && usable.some((m) => m.id === qp.get("model"))) $("model").value = qp.get("model");
+      const only = (qp.get("only") || "").split(",").map((s) => s.trim()).filter(Boolean);
+      if (qp.get("auto") === "1" && usable.length) {
+        log(`<span class="warn">auto 模式：version=${$("version").value} repeat=${$("repeat").value} only=${only.join(",") || "全部"}</span>`);
+        setTimeout(() => $("run").click(), 300);
+      }
+
+      $("run").onclick = async () => {
+        const model = $("model").value;
+        if (!model) return log(`<span class="bad">先选一个模型</span>`);
+        const vsel = $("version").value;
+        const versions = vsel === "both" ? ["v1", "v2"] : [vsel];
+        const repeat = Number($("repeat").value);
+
+        abort = new AbortController();
+        $("run").disabled = true; $("stop").disabled = false; $("s-state").textContent = "运行中";
+        window.__lab.state = "running";
+
+        const list = only.length ? scenarios.filter((s) => only.includes(s.scenario_id)) : scenarios;
+        const queue = [];
+        for (const v of versions) for (const s of list) for (let r = 0; r < repeat; r++) queue.push({ v, s, r });
+
+        for (const { v, s, r } of queue) {
+          if (abort.signal.aborted) break;
+          log(`<span class="turn">[${v}] ${s.scenario_id} ${s.label} #${r + 1} —— ${s.goal}</span>`);
+
+          // 单场会话的上限。一个挂起的模型请求会静默拖死整批采集 ——
+          // 外面那个总超时要四十分钟才生效，等它不如在这里直接掐掉这一场。
+          const local = new AbortController();
+          const relay = () => local.abort();
+          abort.signal.addEventListener("abort", relay);
+          const guard = setTimeout(() => local.abort(), 180000);
+
+          try {
+            const ses = await runSession({
+              cloud, model,
+              scenario: s,
+              world: boot.world,
+              systemPrompt: boot.prompts.versions[v].system,
+              promptVersion: v,
+              runIndex: r + 1,
+              signal: local.signal,
+            });
+
+            for (const t of ses.turns) {
+              doneT++;
+              if (!t.success) failed++;
+              const steps = t.steps.filter((x) => x.kind === "tool_call")
+                .map((x) => (x.ok ? x.tool : `${x.tool}!`)).join(" → ");
+              log(
+                `  <span class="${t.success ? "ok" : "bad"}">轮 ${t.turn_index} ${t.success ? "PASS" : "FAIL"}</span> ` +
+                `<span class="dim">${steps || "未调用工具"}</span>` +
+                (t.success ? "" : `\n      <span class="warn">${t.fail_reason}</span>`)
+              );
+            }
+
+            doneS++;
+            tokens += ses.usage.total_tokens;
+            $("s-done").textContent = doneS; $("s-turn").textContent = doneT;
+            $("s-fail").textContent = failed; $("s-token").textContent = tokens;
+            window.__lab.done = doneS; window.__lab.turns = doneT; window.__lab.failed = failed;
+
+            await fetch("/api/lab/ingest-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify([ses]),
+            });
+          } catch (e) {
+            const why = local.signal.aborted && !abort.signal.aborted ? "单场超时（3 分钟）" : e.message;
+            log(`<span class="bad">[${v}] ${s.scenario_id} 异常：${why}</span>`);
+            window.__lab.error = String(why).slice(0, 200);
+          } finally {
+            clearTimeout(guard);
+            abort.signal.removeEventListener("abort", relay);
+          }
+        }
+
+        $("run").disabled = false; $("stop").disabled = true; $("s-state").textContent = "已完成";
+        window.__lab.state = abort.signal.aborted ? "aborted" : "done";
+        log(`<span class="dim">—— 结束：${doneS} 场会话，${doneT} 轮，失败 ${failed} 轮，共 ${tokens} tokens ——</span>`);
+      };
+
+      $("dump").onclick = async () => {
+        const res = await fetch("/api/lab/dump-sessions");
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "sessions.json";
+        a.click();
+      };
+    </script>
+  </body>
+</html>

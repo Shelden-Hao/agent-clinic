@@ -207,18 +207,14 @@ async function callOnce(cloud, { model, messages, signal }) {
 }
 
 /**
- * 跑一个任务，返回一条完整轨迹。
- * 注意：world 每次任务都会重新构建工具实例，避免上一次的退款影响下一次（保证任务独立）。
+ * ReAct 循环本身。单轮与多轮共用同一份实现 ——
+ * 如果多轮另写一套，两边的失败原因就不可比了，而那正是多轮最该回答的问题。
+ *
+ * messages 是**引用传递**：调用方持有它，循环往里追加 assistant / tool 消息。
+ * 多轮就是靠这一点把上一轮的对话带进下一轮。
  */
-export async function runTask({ cloud, model, task, world, systemPrompt, promptVersion, runIndex, signal, onStep }) {
-  const tools = makeTools(JSON.parse(JSON.stringify(world)));
-  const messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: `${task.prompt}\n（当前登录用户：${task.user_id}）` },
-  ];
-
+async function reactLoop({ cloud, model, messages, tools, signal, onStep }) {
   const steps = [];
-  const startedAt = new Date().toISOString();
   let totalTokens = 0;
   let finalContent = null;
   let lastCall = null;
@@ -284,6 +280,22 @@ export async function runTask({ cloud, model, task, world, systemPrompt, promptV
     }
   }
 
+  return { steps, totalTokens, finalContent, lastCall };
+}
+
+/**
+ * 跑一个任务，返回一条完整轨迹。
+ * 注意：world 每次任务都会重新构建工具实例，避免上一次的退款影响下一次（保证任务独立）。
+ */
+export async function runTask({ cloud, model, task, world, systemPrompt, promptVersion, runIndex, signal, onStep }) {
+  const tools = makeTools(JSON.parse(JSON.stringify(world)));
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: `${task.prompt}\n（当前登录用户：${task.user_id}）` },
+  ];
+  const startedAt = new Date().toISOString();
+  const res = await reactLoop({ cloud, model, messages, tools, signal, onStep });
+
   return {
     run_id: `${task.task_id}-${promptVersion}-${runIndex}`,
     task_id: task.task_id,
@@ -292,9 +304,85 @@ export async function runTask({ cloud, model, task, world, systemPrompt, promptV
     model,
     started_at: startedAt,
     user_id: task.user_id,
-    steps,
-    final_content: finalContent,
-    last_call: lastCall,
+    steps: res.steps,
+    final_content: res.finalContent,
+    last_call: res.lastCall,
+    usage: { total_tokens: res.totalTokens },
+    ledger: tools.ledger,
+  };
+}
+
+/**
+ * 跑一个多轮会话。
+ *
+ * 与 runTask 的两个关键差别，也是「多轮」这个词的全部含义：
+ *
+ * 1. **世界状态共享**：整场会话只建一次工具实例。第 1 轮退了的钱，
+ *    第 2 轮查出来就是已退状态。不共享的话，多轮只是把几条单轮轨迹贴上同一个编号。
+ * 2. **对话历史累积**：messages 一路传下去。第 2 轮不再重复订单号，
+ *    Agent 只有靠历史才知道用户在说哪个订单 —— 这正是要测的东西。
+ *
+ * 每一轮单独判定成功与否。会话的成功 = 每一轮都成功。
+ */
+export async function runSession({
+  cloud,
+  model,
+  scenario,
+  world,
+  systemPrompt,
+  promptVersion,
+  runIndex,
+  signal,
+  onStep,
+}) {
+  const tools = makeTools(JSON.parse(JSON.stringify(world)));
+  const messages = [{ role: "system", content: systemPrompt }];
+  const startedAt = new Date().toISOString();
+  const turns = [];
+  let totalTokens = 0;
+
+  for (const [idx, t] of scenario.turns.entries()) {
+    messages.push({
+      role: "user",
+      content: `${t.user}\n（当前登录用户：${scenario.user_id}）`,
+    });
+
+    const before = tools.ledger.length;
+    const res = await reactLoop({ cloud, model, messages, tools, signal, onStep });
+    totalTokens += res.totalTokens;
+
+    // 判定只看本轮的副作用增量，不能把上一轮的退款算进这一轮。
+    // 但「这一轮结束时这笔钱必须退过」这种判定又要能看见历史 ——
+    // 所以增量与历史分开传：ledger 是本轮的，priorLedger 是之前的。
+    const delta = tools.ledger.slice(before);
+    const judged = judge(
+      { steps: res.steps, ledger: delta, priorLedger: tools.ledger.slice(0, before) },
+      { expect: t.expect || {} }
+    );
+
+    turns.push({
+      turn_index: idx + 1,
+      user: t.user,
+      steps: res.steps,
+      final_content: res.finalContent,
+      expect: t.expect || {},
+      usage: { total_tokens: res.totalTokens },
+      ...judged,
+    });
+
+    // 把这一轮的答复接进历史。用户下一轮就是接着这句话说的。
+    messages.push({ role: "assistant", content: res.finalContent || "" });
+  }
+
+  return {
+    session_id: `${scenario.scenario_id}-${promptVersion}-${runIndex}`,
+    scenario_id: scenario.scenario_id,
+    goal: scenario.goal,
+    prompt_version: promptVersion,
+    model,
+    started_at: startedAt,
+    user_id: scenario.user_id,
+    turns,
     usage: { total_tokens: totalTokens },
     ledger: tools.ledger,
   };
@@ -330,6 +418,50 @@ export function judge(run, task) {
       success: ok,
       actual: { action: "refund", amount: Math.round(total * 100) / 100 },
       fail_reason: ok ? null : `退款金额 ${total} 与应退金额 ${expect.max_amount} 不符`,
+    };
+  }
+
+  if (expect.action === "consult") {
+    // 用户还在咨询或确认阶段。这一轮的正确行为是「查清事实并回答」，
+    // 而不是抢在用户确认之前把事办了 —— 早了不叫高效，叫越权。
+    const wrote = anyRefund || escalated;
+    return {
+      success: !wrote,
+      actual: { action: wrote ? (anyRefund ? "refund" : "escalate") : "consult" },
+      fail_reason: wrote
+        ? "用户尚未确认，Agent 就执行了写操作"
+        : null,
+    };
+  }
+
+  if (expect.action === "ensure_refunded") {
+    // 「这一轮结束时，这笔钱必须是退过的」。
+    //
+    // 为什么不写成 action: "refund"：多轮里前一轮可能已经把事办了。
+    // 这时第 2 轮的正确回答是「已经退过了」，不是再退一次（会撞余额上限）。
+    // 用 refund 判定会把正确行为判成失败 —— 假阴性比假阳性更危险，
+    // 它会让人去改一条本来就对的规则。
+    //
+    // 判据仍然硬：累计金额必须对上。凭记忆说「已退款」但金额对不上，不算通过。
+    const prior = (run.priorLedger || []).filter((r) => r.order_id === expect.order_id);
+    const priorTotal = prior.reduce((s, r) => s + r.amount, 0);
+    const nowTotal = (run.ledger || [])
+      .filter((r) => r.order_id === expect.order_id)
+      .reduce((s, r) => s + r.amount, 0);
+    const total = Math.round((priorTotal + nowTotal) * 100) / 100;
+    const target = Number(expect.max_amount || 0);
+    const ok = Math.abs(total - target) < 0.01;
+
+    return {
+      success: ok,
+      actual: {
+        action: nowTotal > 0 ? "refund" : priorTotal > 0 ? "already_refunded" : "none",
+        amount: total,
+      },
+      fail_reason: ok
+        ? null
+        : `会话累计退款 ${total}，与应退 ${target} 不符` +
+          (priorTotal > 0 ? `（其中前几轮已退 ${priorTotal}）` : ""),
     };
   }
 

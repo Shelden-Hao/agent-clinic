@@ -11,39 +11,73 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import platform
 import sys
+import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
-from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from analysis.align import align_runs  # noqa: E402
+from analysis.cluster import patch_for  # noqa: E402
 from analysis.diagnose import diagnose  # noqa: E402
 from analysis.evaluate import EvalConfig, evaluate  # noqa: E402
 from analysis.ingest import FORMATS, ingest, ingest_jsonl, roundtrip_stats  # noqa: E402
 from analysis.minimize import minimize  # noqa: E402
+from analysis.promptlib import (  # noqa: E402
+    Source,
+    Version,
+    apply_edit,
+    compose_patch,
+    diff as prompt_diff,
+    dump_versions,
+    lineage,
+    load_versions,
+    next_id,
+    overview as prompt_overview,
+)
 from analysis.regress import verify  # noqa: E402
 from analysis.review import build_queue, verify_review  # noqa: E402
+from analysis.session import (  # noqa: E402
+    SESSION_KINDS,
+    SESSION_PATCH,
+    diagnose_session,
+    history_dependency,
+    session_from_dict,
+    summarize as summarize_sessions,
+)
 from analysis.trace import kind_label, run_from_dict  # noqa: E402
 
 DATA_DIR = ROOT / "data"
 STATIC_DIR = ROOT / "server" / "static"
 RUNTIME_DIR = ROOT / "runtime"
 SAMPLES_DIR = DATA_DIR / "samples"
+SDK_DIR = ROOT / "sdk"
 REGRESSION = DATA_DIR / "regression.json"
 REVIEWS = DATA_DIR / "reviews.json"
+PROMPTS = DATA_DIR / "prompts.json"
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 MAX_INTAKE_BYTES = 4 * 1024 * 1024
 MAX_INTAKE_RUNS = 60
+
+# 实时上报的入口密钥。默认值只够本地开发用，线上由环境变量覆盖。
+# 不做成完全开放：一个能写数据的公开接口，几小时内就会变成垃圾场。
+CLINIC_KEY = os.environ.get("CLINIC_KEY", "dev")
+# 每分钟允许的上报条数。可观测性数据不值得为它开无限配额。
+STREAM_RATE_LIMIT = int(os.environ.get("STREAM_RATE_LIMIT", "900"))
 
 # 云服务激活时拿到的公开配置（endpoint / publishableKey 可进前端，服务端密钥不会出现）
 PUBLIC_CONFIG = {
@@ -120,6 +154,18 @@ def create_app() -> FastAPI:
         description="把 Agent 的失败轨迹归纳成失败模式，生成最小复现用例，并让修复可回归。",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
+    )
+
+    # 上报接口要被别人的服务端/浏览器跨域调用，所以必须开 CORS。
+    # 只放开上报与只读接口用得到的方法，且不携带 cookie —— 这个服务没有登录态。
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Clinic-Key"],
+        allow_credentials=False,
     )
 
     @app.get("/api/health")
@@ -319,6 +365,386 @@ def create_app() -> FastAPI:
             }
         )
 
+    # ── 实时上报：SDK 边跑边送，这里边送边诊 ────────────────────────────────
+    #
+    # 用内存环形缓冲 + SSE，不引 Redis / WebSocket / 消息队列。
+    # 理由和整个项目一致：单进程、零外部依赖、打开就能用。
+    # 代价是**多副本部署时各看各的**，这一点在 /api/stream/info 里如实标注。
+    _stream_buf: deque = deque(maxlen=400)
+    _subs: set[asyncio.Queue] = set()
+    _rate: list[float] = []
+
+    def _rate_ok() -> bool:
+        t = time.monotonic()
+        while _rate and t - _rate[0] > 60:
+            _rate.pop(0)
+        if len(_rate) >= STREAM_RATE_LIMIT:
+            return False
+        _rate.append(t)
+        return True
+
+    def _broadcast(item: dict) -> None:
+        _stream_buf.append(item)
+        for q in list(_subs):
+            try:
+                q.put_nowait(item)
+            except asyncio.QueueFull:
+                # 订阅端跟不上就丢给它，不能拖慢上报端
+                pass
+
+    def _auth(request: Request) -> None:
+        if not CLINIC_KEY:
+            return
+        got = request.headers.get("x-clinic-key") or request.query_params.get("key") or ""
+        if got != CLINIC_KEY:
+            raise HTTPException(
+                status_code=401,
+                detail="上报密钥不正确。服务端通过环境变量 CLINIC_KEY 配置，SDK 里要传同一个值。",
+            )
+
+    def _persist_stream(items: list[dict]) -> None:
+        """落盘留痕。失败不影响上报结果 —— 磁盘满不该让采集端挂掉。"""
+        try:
+            RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+            with (RUNTIME_DIR / "stream.jsonl").open("a", encoding="utf-8") as f:
+                for it in items:
+                    f.write(json.dumps(it, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+
+    @app.get("/api/stream/info")
+    def stream_info() -> JSONResponse:
+        """实时流的自述：能做什么、不能做什么。前端会把 limits 原样显示出来。"""
+        return JSONResponse(
+            {
+                "ready": True,
+                "key_required": bool(CLINIC_KEY),
+                "rate_limit_per_min": STREAM_RATE_LIMIT,
+                "buffer": len(_stream_buf),
+                "subscribers": len(_subs),
+                "endpoints": {
+                    "step": "POST /api/stream/step   单步上报（数组或单个对象）",
+                    "trace": "POST /api/stream/trace  整条轨迹上报，返回现场诊断",
+                    "feed": "GET  /api/stream/feed   SSE 推送",
+                    "replay": "POST /api/stream/replay 回放样本轨迹（演示用）",
+                },
+                "sdk": {
+                    "url": "/sdk/agent-clinic.js",
+                    "note": "零依赖 ES 模块，浏览器与 Node 18+ 都能用；wrap() 包一层工具函数即自动上报。",
+                },
+                "limits": [
+                    "单进程内存缓冲，多副本部署时各副本各看各的。",
+                    "只保留最近 400 条事件，超出后最老的被覆盖。",
+                    "上报的轨迹用于现场诊断，不写入正式轨迹库；要进库请走 /api/intake 或存进回归集。",
+                ],
+            }
+        )
+
+    @app.post("/api/stream/step")
+    async def stream_step(request: Request, payload: Any = Body(...)) -> JSONResponse:
+        """接收单步事件。SDK 会批量发，所以这里同时接受数组与单个对象。"""
+        _auth(request)
+        if not _rate_ok():
+            raise HTTPException(status_code=429, detail=f"超过 {STREAM_RATE_LIMIT} 条/分钟的上报上限")
+        items = payload if isinstance(payload, list) else [payload]
+        for it in items:
+            if isinstance(it, dict):
+                _broadcast({"type": "step", "source": "sdk", **it})
+        _persist_stream([i for i in items if isinstance(i, dict)])
+        return JSONResponse({"ok": True, "accepted": len(items)})
+
+    @app.post("/api/stream/trace")
+    async def stream_trace(request: Request, payload: Any = Body(...)) -> JSONResponse:
+        """接收整条轨迹：现场诊断，并把结论推给所有正在看流的人。
+
+        刻意不落进正式轨迹库（data/corpus.json）：
+        那套语料是报告的数据源，混进陌生人的轨迹会让报告的每个数字都失去可比性。
+        """
+        _auth(request)
+        if not _rate_ok():
+            raise HTTPException(status_code=429, detail=f"超过 {STREAM_RATE_LIMIT} 条/分钟的上报上限")
+
+        items = payload if isinstance(payload, list) else [payload]
+        expects = _task_expects()
+        out = []
+        for raw in items:
+            if not isinstance(raw, dict) or not raw.get("run_id"):
+                continue
+            try:
+                run, diag, mini, ev = _diagnose_dict(raw, expects)
+            except Exception as e:  # noqa: BLE001
+                # 上报端格式不对不该让服务 500 —— 告诉它哪里不对更有用
+                out.append({"run_id": raw.get("run_id"), "ok": False, "error": str(e)[:200]})
+                continue
+            out.append(
+                {
+                    "run_id": run.run_id,
+                    "ok": True,
+                    "success": run.success,
+                    "success_known": run.success_known,
+                    "steps": len(run.tool_steps),
+                    "kind": diag.kind,
+                    "kind_label": kind_label(diag.kind),
+                    "confidence": round(diag.confidence, 2),
+                    "evidence": diag.evidence,
+                    "minimal_steps": (mini or {}).get("minimal_steps"),
+                    "evaluation": {"overall": ev.get("overall"), "scope": ev.get("scope")},
+                }
+            )
+            _broadcast(
+                {
+                    "type": "trace",
+                    "source": "sdk",
+                    "at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                    "run_id": run.run_id,
+                    "task_id": run.task_id,
+                    "version": run.prompt_version,
+                    "model": run.model,
+                    "success": run.success,
+                    "success_known": run.success_known,
+                    "steps": len(run.tool_steps),
+                    "kind": diag.kind,
+                    "kind_label": kind_label(diag.kind),
+                    "confidence": round(diag.confidence, 2),
+                    "evidence": diag.evidence,
+                    "tools": run.tools_used,
+                }
+            )
+        _persist_stream([i for i in items if isinstance(i, dict)])
+        return JSONResponse({"ok": True, "count": len(out), "results": out})
+
+    @app.get("/api/stream/feed")
+    async def stream_feed(request: Request) -> StreamingResponse:
+        """SSE。用 SSE 而不是 WebSocket：单向推送、浏览器原生重连、不需要新依赖。"""
+        q: asyncio.Queue = asyncio.Queue(maxsize=200)
+
+        async def gen():
+            _subs.add(q)
+            try:
+                yield 'data: {"type":"hello","buffer":%d}\n\n' % len(_stream_buf)
+                # 先补最近的历史：刚打开页面的人不该面对一块空白
+                for it in list(_stream_buf)[-25:]:
+                    yield f"data: {json.dumps(it, ensure_ascii=False)}\n\n"
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        item = await asyncio.wait_for(q.get(), timeout=15)
+                        yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                    except asyncio.TimeoutError:
+                        # 心跳，防止中间代理把空闲连接掐掉
+                        yield ": ping\n\n"
+            finally:
+                _subs.discard(q)
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+        )
+
+    @app.post("/api/stream/replay")
+    async def stream_replay(payload: dict = Body(default={})) -> JSONResponse:
+        """把仓库里的真实轨迹回放进流里，供没有接 SDK 的人看效果。
+
+        回放的是真轨迹，节奏是模拟的。事件带 source="replay"，
+        界面上会与真实上报分开标注 —— 拿回放冒充实时数据，是这类工具最容易犯的错。
+        """
+        n = max(1, min(int((payload or {}).get("count") or 5), 20))
+        gap = max(0.0, min(float((payload or {}).get("gap") or 0.45), 3.0))
+        expects = _task_expects()
+        raw_runs = _corpus_runs()
+        # 挑有代表性的一组：成功与失败混着来，否则流上看不出诊断在做什么
+        bad = [r for r in raw_runs if not r.get("success")][: n // 2 + n % 2]
+        good = [r for r in raw_runs if r.get("success")][: n // 2]
+        picked = [x for pair in zip(bad, good) for x in pair] + bad[len(good):] + good[len(bad):]
+        picked = picked[:n]
+
+        sent = 0
+        for raw in picked:
+            try:
+                run, diag, _, _ = _diagnose_dict(raw, expects)
+            except Exception:  # noqa: BLE001
+                continue
+            for s in run.steps:
+                ev = {
+                    "type": "step",
+                    "source": "replay",
+                    "at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                    "run_id": run.run_id,
+                    "task_id": run.task_id,
+                    "version": run.prompt_version,
+                    "model": run.model,
+                    "step": {
+                        "i": s.index,
+                        "kind": s.kind,
+                        "tool": s.tool,
+                        "args": s.args,
+                        "ok": s.ok,
+                        "error": s.error,
+                        "content": (s.content or "")[:240] or None,
+                        "observation_brief": (s.observation_text or "")[:240] or None,
+                        "latency_ms": s.latency_ms,
+                    },
+                }
+                _broadcast(ev)
+                sent += 1
+                if gap:
+                    await asyncio.sleep(gap)
+            _broadcast(
+                {
+                    "type": "trace",
+                    "source": "replay",
+                    "at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+                    "run_id": run.run_id,
+                    "task_id": run.task_id,
+                    "version": run.prompt_version,
+                    "model": run.model,
+                    "success": run.success,
+                    "success_known": run.success_known,
+                    "steps": len(run.tool_steps),
+                    "kind": diag.kind,
+                    "kind_label": kind_label(diag.kind),
+                    "confidence": round(diag.confidence, 2),
+                    "evidence": diag.evidence,
+                    "tools": run.tools_used,
+                }
+            )
+            sent += 1
+        return JSONResponse({"ok": True, "replayed": len(picked), "events": sent, "note": "回放的是仓库内真实轨迹，节奏为模拟。"})
+
+    # ── 多轮会话：单轮测不出的那一层 ────────────────────────────────────────
+    def _load_sessions() -> list:
+        """优先读入库的会话（随仓库交付），其次读采集台的临时产出。"""
+        lib = _load_json_name("sessions.json")
+        if isinstance(lib, dict) and lib.get("sessions"):
+            raw = lib["sessions"]
+        elif isinstance(lib, list) and lib:
+            raw = lib
+        else:
+            path = RUNTIME_DIR / "sessions.jsonl"
+            if not path.exists():
+                return []
+            raw = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+        out = []
+        for d in raw:
+            try:
+                out.append(session_from_dict(d))
+            except (KeyError, TypeError):
+                continue
+        return out
+
+    @app.get("/api/sessions")
+    def list_sessions() -> JSONResponse:
+        sessions = _load_sessions()
+        if not sessions:
+            return JSONResponse(
+                {
+                    "ready": False,
+                    "reason": "还没有多轮会话数据。可在采集台跑 tools/drive-session.mjs 生成。",
+                    "summary": None,
+                    "sessions": [],
+                }
+            )
+        summary = summarize_sessions(sessions)
+        rows = []
+        for s in sessions:
+            findings = diagnose_session(s)
+            rows.append(
+                {
+                    "session_id": s.session_id,
+                    "scenario_id": s.scenario_id,
+                    "version": s.prompt_version,
+                    "goal": s.goal,
+                    "model": s.model,
+                    "turns": len(s.turns),
+                    "steps": s.total_steps,
+                    "tokens": s.total_tokens,
+                    "success": s.success,
+                    "failed_turns": [t.turn_index for t in s.failed_turns],
+                    "cross_kinds": sorted({f.kind for f in findings}),
+                    "cross_labels": sorted({f.label for f in findings}),
+                    "dependency": [r["tag"] for r in history_dependency(s)],
+                }
+            )
+        rows.sort(key=lambda r: (r["session_id"], r["version"]))
+        return JSONResponse({"ready": True, "summary": summary, "sessions": rows, "count": len(rows)})
+
+    @app.get("/api/sessions/scenarios")
+    def list_scenarios() -> JSONResponse:
+        """场景定义。界面要能说清「这个会话是设计来测什么的」，否则失败看起来像偶然。"""
+        raw = _load_json_name("scenarios.json")
+        return JSONResponse(raw or {"scenarios": []})
+
+    @app.get("/api/sessions/{session_id}")
+    def get_session(session_id: str) -> JSONResponse:
+        s = next((x for x in _load_sessions() if x.session_id == session_id), None)
+        if s is None:
+            raise HTTPException(status_code=404, detail=f"未找到会话 {session_id}")
+        findings = diagnose_session(s)
+        deps = {r["turn_index"]: r for r in history_dependency(s)}
+
+        turns = []
+        for t in s.turns:
+            turns.append(
+                {
+                    "turn_index": t.turn_index,
+                    "user": t.user,
+                    "success": t.success,
+                    "success_known": t.success_known,
+                    "expect": t.expect,
+                    "actual": t.actual,
+                    "fail_reason": t.fail_reason,
+                    "tokens": int(t.usage.get("total_tokens") or 0),
+                    "final_content": (t.final_text or "")[:1200],
+                    "dependency": (deps.get(t.turn_index) or {}).get("tag"),
+                    "grounded": t.grounded,
+                    "single_kind": t.single_kind,
+                    "cross_kinds": [f.kind for f in findings if f.turn_index == t.turn_index],
+                    "steps": [
+                        {
+                            "step_index": x.index,
+                            "kind": x.kind,
+                            "tool": x.tool,
+                            "args": x.args,
+                            "ok": x.ok,
+                            "error": x.error,
+                            "content": (x.content or "")[:600],
+                            "observation": (
+                                x.observation
+                                if isinstance(x.observation, (dict, list))
+                                else (x.observation_text[:600] if x.observation is not None else None)
+                            ),
+                        }
+                        for x in t.steps
+                    ],
+                }
+            )
+
+        return JSONResponse(
+            {
+                "session_id": s.session_id,
+                "scenario_id": s.scenario_id,
+                "version": s.prompt_version,
+                "goal": s.goal,
+                "model": s.model,
+                "started_at": s.started_at,
+                "user_id": s.user_id,
+                "success": s.success,
+                "turns": turns,
+                "findings": [f.to_dict() for f in findings],
+                "patches": [
+                    {"kind": k, "label": SESSION_KINDS.get(k, k), "text": SESSION_PATCH[k]}
+                    for k in sorted({f.kind for f in findings})
+                ],
+                "caveat": (
+                    "跨轮结论只依赖可见证据：哪一轮的哪句话、哪次调用的哪个参数。"
+                    "不做「语义上好像不连贯」这类判断 —— 那种判断没法反驳，也就没法修。"
+                ),
+            }
+        )
+
+
     # ── 现场接诊：把别人的轨迹拖进来 ────────────────────────────────────────
     @app.get("/api/intake/formats")
     def intake_formats() -> JSONResponse:
@@ -417,6 +843,251 @@ def create_app() -> FastAPI:
                 ),
             }
         )
+
+    # ── Prompt 版本管理：从诊断到「下一版怎么写」的那一段 ──────────────────
+    def _read_versions() -> dict[str, Version]:
+        return load_versions(_load_json(PROMPTS))
+
+    def _write_versions(versions: dict[str, Version]) -> None:
+        PROMPTS.parent.mkdir(parents=True, exist_ok=True)
+        PROMPTS.write_text(
+            json.dumps(dump_versions(versions), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        # 版本一变，报告里的版本对照就旧了。这里不自动重编 —— 重编要跑全量归因，
+        # 放在请求里会让一次点击变成几秒的等待。改为在前端显式提示「需要重新编译报告」。
+
+    def _version_runs() -> list[dict]:
+        report = _load_json_name("report.json")
+        return list((report or {}).get("runs") or [])
+
+    @app.get("/api/prompts")
+    def list_prompts() -> JSONResponse:
+        versions = _read_versions()
+        if not versions:
+            raise HTTPException(status_code=503, detail="data/prompts.json 缺失或为空")
+        return JSONResponse(prompt_overview(versions, _version_runs()))
+
+    @app.get("/api/prompts/diff")
+    def prompts_diff(a: str, b: str) -> JSONResponse:
+        """两个版本的正文逐行对照。
+
+        刻意做成 GET：diff 是无副作用的纯读操作，放进 POST 里会让它没法被直接分享链接。
+        """
+        versions = _read_versions()
+        for vid in (a, b):
+            if vid not in versions:
+                raise HTTPException(status_code=404, detail=f"没有版本 {vid}")
+        return JSONResponse(prompt_diff(versions[a], versions[b]))
+
+    @app.get("/api/prompts/diffable")
+    def prompts_diffable() -> JSONResponse:
+        """给 diff 页准备的所有版本对，按「血缘相近优先」排序。"""
+        versions = _read_versions()
+        ids = sorted(versions)
+        pairs = []
+        for i, x in enumerate(ids):
+            for y in ids[i + 1 :]:
+                lin = lineage(versions, y)
+                related = x in lin
+                d = prompt_diff(versions[x], versions[y])
+                pairs.append(
+                    {
+                        "a": x,
+                        "b": y,
+                        "related": related,
+                        "changed": d["stats"]["added"] + d["stats"]["removed"] + d["stats"]["changed"],
+                    }
+                )
+        pairs.sort(key=lambda p: (not p["related"], p["changed"]))
+        return JSONResponse({"pairs": pairs})
+
+    @app.get("/api/prompts/compose/sources")
+    def compose_sources() -> JSONResponse:
+        """能拿来生成新版本的原料：单轮病种 + 跨轮病种 + 复核改判。
+
+        这一步是「诊断」和「写 prompt」之间那个具体的接口。
+        没有它，规则草稿就永远只是一段可以复制走的文字。
+        """
+        report = _load_json_name("report.json") or {}
+        patterns = report.get("patterns") or []
+        out_single = [
+            {
+                "kind": p["kind"],
+                "label": p["label"],
+                "count": p["count"],
+                "tasks": p.get("tasks") or [],
+                "advice": p.get("advice") or "",
+                "patch": p.get("patch") or patch_for(p["kind"]),
+                "recommended": p["count"] >= 3,
+            }
+            for p in patterns
+        ]
+
+        sessions = _load_sessions()
+        cross: dict[str, dict] = {}
+        for s in sessions:
+            for f in diagnose_session(s):
+                cur = cross.setdefault(
+                    f.kind,
+                    {
+                        "kind": f.kind,
+                        "label": f.label,
+                        "count": 0,
+                        "sessions": [],
+                        "patch": SESSION_PATCH.get(f.kind, ""),
+                    },
+                )
+                cur["count"] += 1
+                if s.session_id not in cur["sessions"]:
+                    cur["sessions"].append(s.session_id)
+
+        reviews = _read_reviews()
+        overrides = [
+            {
+                "run_id": k,
+                "from": v.get("original_kind"),
+                "to": v.get("kind"),
+                "reason": v.get("reason") or "",
+            }
+            for k, v in reviews.items()
+            if v.get("action") == "override"
+        ]
+
+        return JSONResponse(
+            {
+                "single": out_single,
+                "cross": list(cross.values()),
+                "overrides": overrides,
+                "note": (
+                    "推荐标记只看「出现次数 ≥ 3」这一条硬指标，不做重要性加权 —— "
+                    "加权会让我替你决定哪条更值得修，而这件事该由你判断。"
+                ),
+            }
+        )
+
+    @app.post("/api/prompts/compose")
+    def compose_prompt(payload: dict = Body(...)) -> JSONResponse:
+        """按选中的病种，在指定基线版上追加规则，生成一个草稿版本。
+
+        生成的是**草稿**：没有轨迹验证过，所以它的失败率是空的，界面上也不会显示 0%。
+        """
+        versions = _read_versions()
+        if not versions:
+            raise HTTPException(status_code=503, detail="还没有任何 Prompt 版本")
+        # 不传 base 就取版本号最大的那个当基线。
+        # 不能用字典序 max()：那样 "v9" 会排在 "v10" 后面，选错基线。
+        base_id = payload.get("base") or max(
+            versions, key=lambda k: int(k[1:]) if k[1:].isdigit() else -1
+        )
+        if base_id not in versions:
+            raise HTTPException(status_code=400, detail=f"基线版本 {base_id} 不存在")
+
+        kinds = [k for k in (payload.get("kinds") or []) if isinstance(k, str)]
+        cross_kinds = [k for k in (payload.get("cross_kinds") or []) if isinstance(k, str)]
+        if not kinds and not cross_kinds:
+            raise HTTPException(status_code=400, detail="至少要选一条依据")
+
+        report = _load_json_name("report.json") or {}
+        pat = {p["kind"]: p for p in (report.get("patterns") or [])}
+        entries: list[tuple[str, str, Source]] = []
+
+        for k in kinds:
+            body = (pat.get(k) or {}).get("patch") or patch_for(k)
+            if not body:
+                continue
+            p = pat.get(k) or {}
+            entries.append(
+                (
+                    body,
+                    f"{p.get('label') or kind_label(k)}（{p.get('count', 0)} 次）",
+                    Source(
+                        kind="pattern",
+                        ref=k,
+                        label=p.get("label") or kind_label(k),
+                        evidence=(p.get("advice") or "")[:300],
+                    ),
+                )
+            )
+
+        sess_by_kind: dict[str, list[str]] = {}
+        for s in _load_sessions():
+            for f in diagnose_session(s):
+                sess_by_kind.setdefault(f.kind, [])
+                if s.session_id not in sess_by_kind[f.kind]:
+                    sess_by_kind[f.kind].append(s.session_id)
+
+        for k in cross_kinds:
+            body = SESSION_PATCH.get(k)
+            if not body:
+                continue
+            entries.append(
+                (
+                    body,
+                    f"{SESSION_KINDS.get(k, k)}（多轮会话）",
+                    Source(
+                        kind="session",
+                        ref=k,
+                        label=SESSION_KINDS.get(k, k),
+                        evidence="涉及会话：" + "、".join(sess_by_kind.get(k, [])[:4]),
+                    ),
+                )
+            )
+
+        if not entries:
+            raise HTTPException(status_code=400, detail="选中的依据都没有可用的规则草稿")
+
+        new_id = payload.get("id") or next_id(versions)
+        if new_id in versions:
+            raise HTTPException(status_code=409, detail=f"版本 {new_id} 已存在")
+
+        v = compose_patch(
+            versions[base_id],
+            entries,
+            new_id,
+            label=payload.get("label") or "",
+            note=payload.get("note") or "",
+        )
+        versions[new_id] = v
+        _write_versions(versions)
+        return JSONResponse({"ok": True, "version": v.to_dict(), "lineage": lineage(versions, new_id)})
+
+    @app.get("/api/prompts/{vid}")
+    def get_prompt(vid: str) -> JSONResponse:
+        versions = _read_versions()
+        if vid not in versions:
+            raise HTTPException(status_code=404, detail=f"没有版本 {vid}")
+        v = versions[vid]
+        st = prompt_overview(versions, _version_runs())["versions"]
+        row = next((x for x in st if x["id"] == vid), None)
+        return JSONResponse(
+            {
+                **v.to_dict(),
+                "lineage": lineage(versions, vid),
+                "stats": (row or {}).get("stats"),
+                "children": [x for x in versions if versions[x].parent == vid],
+            }
+        )
+
+    @app.patch("/api/prompts/{vid}")
+    def edit_prompt(vid: str, payload: dict = Body(...)) -> JSONResponse:
+        """就地编辑。每次编辑都落一条 changelog —— 版本表的价值在于能回看。"""
+        versions = _read_versions()
+        if vid not in versions:
+            raise HTTPException(status_code=404, detail=f"没有版本 {vid}")
+        try:
+            v = apply_edit(
+                versions,
+                vid,
+                system=payload.get("system"),
+                label=payload.get("label"),
+                note=payload.get("note"),
+                status=payload.get("status"),
+                changelog_entry=payload.get("changelog_entry"),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        _write_versions(versions)
+        return JSONResponse({"ok": True, "version": v.to_dict()})
 
     # ── 回归集：把最小复现用例钉住，让修复可回归 ────────────────────────────
     def _read_regression() -> list[dict]:
@@ -583,6 +1254,7 @@ def create_app() -> FastAPI:
         world = _load_json_name("world.json")
         tasks = _load_json_name("tasks.json")
         prompts = _load_json_name("prompts.json")
+        scenarios = _load_json_name("scenarios.json")
         if not (world and tasks and prompts):
             raise HTTPException(status_code=503, detail="世界数据尚未生成，先跑 collector/build_world.py")
         return JSONResponse(
@@ -591,26 +1263,44 @@ def create_app() -> FastAPI:
                 "world": world,
                 "tasks": tasks["tasks"],
                 "prompts": prompts,
+                "scenarios": (scenarios or {}).get("scenarios", []),
             }
         )
 
+    def _append_jsonl(name: str, items: list[dict]) -> int:
+        """采集落盘。按 id 去重，重复跑不会把同一批轨迹叠成两份。"""
+        RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+        path = RUNTIME_DIR / name
+        key = "session_id" if "session" in name else "run_id"
+        seen: dict[str, dict] = {}
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    row = json.loads(line)
+                    if row.get(key):
+                        seen[row[key]] = row
+        for it in items:
+            if it.get(key):
+                seen[it[key]] = it
+        with path.open("w", encoding="utf-8") as f:
+            for row in seen.values():
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        return len(seen)
+
+    def _read_jsonl(name: str) -> list[dict]:
+        path = RUNTIME_DIR / name
+        if not path.exists():
+            return []
+        return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+
     @app.post("/api/lab/ingest")
     def lab_ingest(runs: list[dict] = Body(...)) -> JSONResponse:
-        RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
-        path = RUNTIME_DIR / "collected.jsonl"
-        with path.open("a", encoding="utf-8") as f:
-            for run in runs:
-                f.write(json.dumps(run, ensure_ascii=False) + "\n")
-        count = sum(1 for _ in path.open("r", encoding="utf-8"))
-        return JSONResponse({"stored": len(runs), "total": count})
+        total = _append_jsonl("collected.jsonl", runs)
+        return JSONResponse({"stored": len(runs), "total": total})
 
     @app.get("/api/lab/dump")
     def lab_dump() -> JSONResponse:
-        path = RUNTIME_DIR / "collected.jsonl"
-        if not path.exists():
-            return JSONResponse({"runs": []})
-        runs = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        return JSONResponse({"runs": runs})
+        return JSONResponse({"runs": _read_jsonl("collected.jsonl")})
 
     @app.post("/api/lab/reset")
     def lab_reset() -> JSONResponse:
@@ -621,10 +1311,30 @@ def create_app() -> FastAPI:
 
     @app.get("/api/lab/count")
     def lab_count() -> JSONResponse:
-        path = RUNTIME_DIR / "collected.jsonl"
-        if not path.exists():
-            return JSONResponse({"total": 0})
-        return JSONResponse({"total": sum(1 for _ in path.open("r", encoding="utf-8"))})
+        return JSONResponse({"total": len(_read_jsonl("collected.jsonl"))})
+
+    # 多轮会话采集与上面同构，只是文件与主键不同。
+    # 分开存而不是混在一个文件里：会话和单轮轨迹的分析路径完全不同，
+    # 混存会让下游每读一次都要先判类型。
+    @app.post("/api/lab/ingest-session")
+    def lab_ingest_session(sessions: list[dict] = Body(...)) -> JSONResponse:
+        total = _append_jsonl("sessions.jsonl", sessions)
+        return JSONResponse({"stored": len(sessions), "total": total})
+
+    @app.get("/api/lab/dump-sessions")
+    def lab_dump_sessions() -> JSONResponse:
+        return JSONResponse({"sessions": _read_jsonl("sessions.jsonl")})
+
+    @app.post("/api/lab/reset-session")
+    def lab_reset_session() -> JSONResponse:
+        path = RUNTIME_DIR / "sessions.jsonl"
+        if path.exists():
+            path.unlink()
+        return JSONResponse({"total": 0})
+
+    if SDK_DIR.exists():
+        # 必须在挂载 "/" 之前：StaticFiles 挂在根路径上会吞掉之后所有更具体的路径。
+        app.mount("/sdk", StaticFiles(directory=str(SDK_DIR)), name="sdk")
 
     if STATIC_DIR.exists():
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
