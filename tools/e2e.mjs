@@ -228,9 +228,12 @@ await page.setViewportSize({ width: 1440, height: 980 });
 await page.goto(base + "#/sessions", { waitUntil: "networkidle" });
 await page.waitForTimeout(1100);
 let st = await bodyText();
-check("出现漏检率结论", /单轮测试测不出来/.test(st));
+check("给出主结论（造不出样本的轮次）", /单轮测试连样本都造不出来/.test(st));
 check("并排两种成功率", st.includes("按轮算") && st.includes("按会话算"));
-check("出现逐轮递进", st.includes("第几轮开始崩"));
+// 跨轮病检出 0 时必须把「没检出」写出来，不能把整段藏掉 ——
+// 藏起来会让读者以为功能没做完，而真相是判据被调成了「宁可漏报」。
+check("检出 0 时明写「一次都没触发」", /一次都没触发|只有多轮才会出现的三类问题/.test(st));
+check("逐轮递进", st.includes("第几轮开始崩"));
 check("出现逐场景对账", st.includes("逐场景对账"));
 check("列出会话入口", (await page.locator("a.sr").count()) > 0, `${await page.locator("a.sr").count()} 场`);
 await page.screenshot({ path: `${outDir}/sessions.png`, fullPage: true });

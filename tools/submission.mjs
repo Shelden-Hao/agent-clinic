@@ -46,22 +46,41 @@ await go("#/");
 await page.screenshot({ path: `${out}/01-会诊报告.png` });
 await page.screenshot({ path: `${out}/备选-会诊报告-整页.png`, fullPage: true });
 
-// 02 实验对账：失败率的下半句（含展开的并排对比）
+// 02 多轮会话：单轮测试漏掉的那一层（本轮新增的平台级能力）
+// 它讲的是前面九项能力都讲不到的事：有些轮次的用户输入里根本没有订单号，
+// 单轮测试连样本都造不出来；而「被历史害了」的轮次一旦漏检，给的是假绿灯。
+await go("#/sessions");
+await page.screenshot({ path: `${out}/02-多轮会话.png` });
+await page.screenshot({ path: `${out}/备选-多轮会话-整页.png`, fullPage: true });
+
+// 03 Prompt 版本墙：从诊断到演进的闭环（本轮新增）
+await go("#/prompts");
+await page.screenshot({ path: `${out}/03-Prompt版本墙.png` });
+await page.locator(".tab", { hasText: "两版对比" }).click();
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${out}/备选-Prompt版本diff.png`, fullPage: true });
+
+// 备选：实验对账 / 复核队列 / 多轮详情 / 实时流 / 失败模式 / 单条轨迹 / 现场接诊
 await go("#/experiments");
 await page.locator("tr.mrow").first().click();
 await page.waitForTimeout(400);
 await page.locator(".dacts button").first().click();
 await page.waitForTimeout(1200);
-// section.block 里第 2 个是「逐任务矩阵」（第 1 个是稳定性条，第 3 个是病种迁移）
-await page.locator("section.block >> nth=1").screenshot({ path: `${out}/02-实验对账.png` });
+await page.locator("section.block >> nth=1").screenshot({ path: `${out}/备选-实验对账.png` });
 await page.screenshot({ path: `${out}/备选-实验对账-整页.png`, fullPage: true });
 
-// 03 复核队列：机器判不准的，等人签字
 await go("#/review");
-await page.screenshot({ path: `${out}/03-复核队列.png` });
+await page.screenshot({ path: `${out}/备选-复核队列.png` });
 await page.screenshot({ path: `${out}/备选-复核队列-整页.png`, fullPage: true });
 
-// 备选：失败模式与规则草稿 / 单条轨迹
+await go("#/sessions/S01-v1-1");
+await page.screenshot({ path: `${out}/备选-多轮详情.png`, fullPage: true });
+
+await go("#/live");
+await page.locator("button", { hasText: "回放样本" }).click();
+await page.waitForTimeout(2600);
+await page.screenshot({ path: `${out}/备选-实时流.png` });
+
 await go("#/patterns");
 await page.screenshot({ path: `${out}/备选-失败模式.png`, fullPage: true });
 await go("#/runs/T02-v1-1");

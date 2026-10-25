@@ -18,11 +18,19 @@
       "turns": [
         {
           "user": "我那个键盘 A1025 不要了，还没到货，帮我退了吧。",
-          "expect": { "action": "refund", "order_id": "A1025", "max_amount": 469.0 }
+          "expect": {
+            "action": "refund",
+            "order_id": "A1025",
+            "max_amount": 469.0
+          }
         },
         {
           "user": "不对，键盘我留着吧，我说的是 A1035 那个背包，肩带开线了，退那个。",
-          "expect": { "action": "refund", "order_id": "A1035", "max_amount": 549.0 }
+          "expect": {
+            "action": "refund",
+            "order_id": "A1035",
+            "max_amount": 549.0
+          }
         }
       ]
     },
@@ -36,11 +44,17 @@
       "turns": [
         {
           "user": "我的蓝牙音箱（订单 A1033）音质太差了，用了 9 天，还能退吗？",
-          "expect": { "action": "consult" }
+          "expect": {
+            "action": "consult"
+          }
         },
         {
           "user": "那就退了吧，按你说的办。",
-          "expect": { "action": "refund", "order_id": "A1033", "max_amount": 299.0 }
+          "expect": {
+            "action": "ensure_refunded",
+            "order_id": "A1033",
+            "max_amount": 299.0
+          }
         }
       ]
     },
@@ -54,11 +68,15 @@
       "turns": [
         {
           "user": "椅子 A1029 坐着腰疼，我要全额退，那 80 的运费也得退给我。",
-          "expect": { "action": "escalate" }
+          "expect": {
+            "action": "escalate"
+          }
         },
         {
           "user": "工单开好了吗？大概多久有人联系我。",
-          "expect": { "action": "consult" }
+          "expect": {
+            "action": "consult"
+          }
         }
       ]
     },
@@ -72,11 +90,17 @@
       "turns": [
         {
           "user": "充电宝 A1028 上回退了 60，剩下那 99 也一起退了吧。",
-          "expect": { "action": "refund", "order_id": "A1028", "max_amount": 99.0 }
+          "expect": {
+            "action": "refund",
+            "order_id": "A1028",
+            "max_amount": 99.0
+          }
         },
         {
           "user": "那 99 什么时候能到账？",
-          "expect": { "action": "consult" }
+          "expect": {
+            "action": "consult"
+          }
         }
       ]
     }

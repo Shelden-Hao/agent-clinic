@@ -281,14 +281,22 @@ const messages = [{ role: "system", ... }];   // 一路传下去 —— 第 2 �
 前两类改的是「记不记得住、跟不跟得上」，和单轮病「这一次怎么决策」不是一回事，
 所以**分开记，不互相覆盖**——一个轮次可以既犯单轮病又犯跨轮病。
 
-**最有用的一个数字是漏检率**：
+**最有用的一个数字是「造不出样本」的轮次**：
 
 ```
-盲区轮次 = 「被历史害了」且失败的轮次        漏检率 = 盲区 / 总失败轮
+needs_history  本轮用户没给标识符，单轮测试给它一条孤立输入，不是会做错，是无从下手
+harmed_by_history  本轮失败且原因是历史带来的 —— 单独测反而会通过（假绿灯）
 ```
 
-这类轮次单独测会**通过**——单轮测试给它一个假绿灯。
-不是漏掉了一些样本，而是那部分样本会给出错误结论。
+所以页面上第一个数字是 `needs_history` 而不是漏检率。原因很实际：
+漏检率在跨轮病检出为 0 时也等于 0，把它当主数字会让这一页读成「这功能什么都没发现」，
+而事实是**有一部分用例单轮测试根本造不出来**——这不是漏了样本，是样本不存在。
+
+实测（16 场 / 32 轮）跨轮病检出 0 例，逐条核查过真实步骤确认不是漏检：
+S01 两版都正确转向了新目标，S02 记得上文并指出「已经办过了」，
+S03 两次都正确澄清「工单还没开」，S04 没有重复发起退款。
+判据被刻意调成「宁可漏报、不许误报」——误报会让人去改一条本来就对的规则。
+界面上给这个 0 留了一个虚线框的空位，而不是把这一段藏起来。
 
 另外刻意并排两个成功率：**按轮算** vs **按会话算**。
 一场 3 轮会话挂 1 轮，按轮是 67%，按会话是 0 —— 用户真实的感受是后者。
@@ -369,7 +377,7 @@ diff 按**句**对齐而不是按行：v1 是一整段、v2 是五条规则，�
 ```
 后端   Python 3.11+ / FastAPI / uvicorn     （单一端口，同时托管前端与此 API）
 前端   Vue 3 + TypeScript + Vite            （9 个路由、手写 60 行 hash 路由，零额外依赖）
-诊断   analysis/  纯函数库，84 个单测
+诊断   analysis/  纯函数库，86 个单测
 采集   server/static/lab/  浏览器端 ReAct 循环，SDK 本地托管（不依赖 CDN）
 发布   WorkBuddy Sites（Python HTTP 服务）
 ```
@@ -408,7 +416,7 @@ cd web && npm install && npm run build    # 产物直接落到 server/static/
 python collector/build_world.py
 python tools/make_samples.py
 python analysis/build_report.py
-python -m unittest discover -s tests      # 84 个
+python -m unittest discover -s tests      # 86 个
 
 # 多轮会话采集（走线上，需先部署）
 node tools/drive-session.mjs --version both --repeat 2 --out runtime/sessions.json
@@ -483,7 +491,7 @@ server/            FastAPI 应用与静态资源
 server/static/lab/ 浏览器端真实采集台（单轮 collect.html / 多轮 session.html）
 sdk/               零依赖上报 SDK（浏览器 + Node 18+）
 web/               Vue 3 + TS 前端源码（11 个视图）
-tests/             诊断引擎、最小化、评分、接入、回归、实验、复核、会话、版本的单元测试（84 个）
+tests/             诊断引擎、最小化、评分、接入、回归、实验、复核、会话、版本的单元测试（86 个）
 submission/        投稿截图（3 张主图 + 7 张备选，由 tools/submission.mjs 生成）
 tools/             采集驱动、样例生成、截图、端到端验收
 ```

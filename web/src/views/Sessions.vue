@@ -45,16 +45,14 @@ const byScenario = computed(() => {
     .sort((a, b) => a.id.localeCompare(b.id));
 });
 
-const tagInfo = computed(() => {
-  const t = sum.value?.tags ?? [];
-  return {
-    needs: t.find((x) => x.tag === "needs_history"),
-    harmed: t.find((x) => x.tag === "harmed_by_history"),
-    indep: t.find((x) => x.tag === "independent"),
-  };
-});
-
 const maxProg = computed(() => Math.max(0.01, ...(sum.value?.progression ?? []).map((p) => p.rate)));
+
+/** 末轮是否比首轮更差。这句解释必须跟着数据走 ——
+ *  写死成「越聊越差」，一旦数据反过来，这一页就在用自己的结论打自己的脸。 */
+const laterWorse = computed(() => {
+  const p = sum.value?.progression ?? [];
+  return p.length > 1 && p[p.length - 1].rate > p[0].rate;
+});
 
 const crossPatches = computed(() => {
   const out: { kind: string; label: string; count: number; note: string }[] = [];
@@ -86,20 +84,28 @@ function pct(v: number | undefined | null): string {
       </p>
     </div>
 
-    <!-- 一句话结论：先给数字，再给解释 -->
+    <!-- 一句话结论：先说「漏了什么样本」，再说「抓了什么病」。
+         不把漏检率当主数字 —— 它是 0 的时候这张卡会读成「这功能什么都没发现」，
+         而事实是：那几轮之所以测不出来，是因为单轮根本造不出这条用例。 -->
     <section class="card concl">
       <div class="cbig">
-        <b class="c-warn">{{ pct(sum!.blind_spot_rate) }}</b>
-        <span>的失败轮次，单轮测试测不出来</span>
+        <b class="c-warn">{{ sum!.needs_history_turns }}<i>/{{ sum!.turns }}</i></b>
+        <span>个轮次，单轮测试连样本都造不出来</span>
       </div>
       <p class="cwhy">
-        {{ sum!.failed_turns }} 个失败轮次里，有 <b>{{ sum!.blind_spot_turns }}</b> 个属于「被历史害了」——
-        把这一轮单独拿出来测，它反而会通过。因为它们失败的原因不在这一轮的决策，而在前一轮留下的状态：
-        用户改了口没跟上、上一轮已经办过的事又办了一遍。
-        <template v-if="tagInfo.needs">
-          另有 <b>{{ tagInfo.needs.count }}</b> 个轮次属于「离开历史就做不对」——
-          用户没重复订单号，单轮测试给它一条孤立输入，必然做不对。
-        </template>
+        这些轮次的用户输入里没有订单号、没有任务对象——「就按你说的办」「这个不要了」。
+        单轮测试给它一条孤立输入，不是会做错，是<b>无从下手</b>。
+        多轮的第一层价值就在这里：<b>不是测了没过，是这条用例压根造不出来</b>。
+      </p>
+      <p class="cwhy" v-if="sum!.harmed_turns > 0">
+        另有一类更危险：<b>{{ sum!.harmed_turns }}</b> 个轮次「被历史害了」——
+        单独拿出来测会通过，放进会话里却挂了，占全部 {{ sum!.failed_turns }} 个失败轮次的
+        <b>{{ pct(sum!.blind_spot_rate) }}</b>。它的绿灯是真的，只是不该亮。
+      </p>
+      <p class="cwhy" v-else>
+        这一批里被历史害到失败的轮次是 <b>0</b> 个：这个模型在改口跟随、跨轮指代、重复开单上都没栽。
+        写出来是因为<b>这个数字必须能是 0</b>——如果它永远大于 0，那多半是判据在误报，而不是模型真的更差。
+        上面那 {{ sum!.needs_history_turns }} 轮依然说明：不漏样本和抓跨轮病是两件事，前者先发生。
       </p>
     </section>
 
@@ -139,8 +145,14 @@ function pct(v: number | undefined | null): string {
         </div>
       </div>
       <p class="note">
-        每轮的分母是「有这么多轮的会话数」。跨轮问题的典型形态是后面几轮先崩 ——
-        因为前面轮次留下的状态，要到后面才变成债。
+        每轮的分母是「有这么多轮的会话数」。<template v-if="laterWorse">
+          这一批是后面几轮更崩 —— 前面轮次留下的状态，要到后面才变成债。
+        </template>
+        <template v-else>
+          这一批反过来：第 1 轮最差。因为第 1 轮往往就要决定「这件事该不该直接办」，
+          后面的轮次多半只是回答问题。<b>所以逐轮失败率只能说明「哪一轮难」，
+          不能单独当跨轮退化的证据</b> —— 要判跨轮，看的是下面那三类跨轮病。
+        </template>
       </p>
     </section>
 
@@ -202,6 +214,25 @@ function pct(v: number | undefined | null): string {
       </p>
     </section>
 
+    <!-- 一条都没检出来时，必须把「没检出」写出来。
+         藏起来最省事，但那等于让读者以为这功能没做完；
+         而真相是判据被刻意调成了「宁可漏报」——这两件事必须分开讲。 -->
+    <section class="block empty" v-else-if="sum!.sessions">
+      <p class="eyebrow">只有多轮才会出现的三类问题</p>
+      <p class="note">
+        这一批 {{ sum!.sessions }} 场会话、{{ sum!.turns }} 轮里，三类跨轮病
+        <b>一次都没触发</b>：没有「用户改了口还在按旧目标办」，
+        没有「上一轮办过的事又办一遍」，也没有「跨轮指代丢失」。
+      </p>
+      <p class="note">
+        检测跑了，是判据被刻意调成<b>宁可漏报、不许误报</b>——误报会让人去改一条本来就对的规则，
+        代价比漏报大得多（每一类都有专门的「不许触发」单测锁着）。
+        真实的结论是：这个模型的错发生在更早的地方（该直接办还是该先问），
+        轮不到跨轮病出场。上面那 {{ sum!.failed_turns }} 个失败轮次里，
+        {{ sum!.needs_history_turns }} 轮连样本都造不出来，但它们失败的原因仍是单轮决策。
+      </p>
+    </section>
+
     <section class="card block limits">
       <p class="eyebrow">这一页的边界</p>
       <ul>
@@ -235,6 +266,7 @@ function pct(v: number | undefined | null): string {
 .concl { padding: 22px 24px; border-left: 2px solid var(--c-warn, #e0a34a); }
 .cbig { display: flex; align-items: baseline; gap: 12px; }
 .cbig b { font: 700 34px/1 var(--mono); letter-spacing: -1px; }
+.cbig b i { font-style: normal; font-size: 19px; color: var(--dim); letter-spacing: 0; }
 .cbig span { color: var(--muted); font-size: 13.5px; }
 .cwhy { margin: 12px 0 0; font-size: 13px; color: var(--muted); line-height: 1.85; max-width: 820px; }
 .cwhy b { color: var(--text); }
@@ -285,6 +317,11 @@ function pct(v: number | undefined | null): string {
 .khead b { font-size: 13px; }
 .khead span { font-size: 11.5px; }
 .kcard p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.7; }
+
+/* 一条都没检出时的空位：用虚线框标出来，读起来是「这一格空着」而不是「忘了做」 */
+.empty { border: 1px dashed var(--line); border-radius: 9px; padding: 18px 20px; }
+.empty .note { margin: 8px 0 0; max-width: 860px; }
+.empty .note b { color: var(--text); }
 
 .limits { padding: 20px 22px; }
 .limits ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.85; }
