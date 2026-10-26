@@ -105,10 +105,14 @@ function clear() {
 }
 
 const snippet = computed(() => {
-  const origin = typeof location !== "undefined" ? location.origin : "https://your-host";
-  return `import { Clinic } from "${origin}/sdk/agent-clinic.js";
+  const has = typeof location !== "undefined";
+  const origin = has ? location.origin : "https://your-host";
+  // 线上站点用分享码保护：SDK 文件与上报接口都得带着它才放行。
+  // 浏览这一页的人本来就在带码的地址上，所以直接沿用当前查询串。
+  const qs = has ? location.search : "";
+  return `import { Clinic } from "${origin}/sdk/agent-clinic.js${qs}";
 
-const clinic = new Clinic({ endpoint: "${origin}", key: "你的上报密钥" });
+const clinic = new Clinic({ endpoint: "${origin}${qs}", key: "你的上报密钥" });
 
 // 一次请求 = 一条轨迹
 const trace = clinic.trace({

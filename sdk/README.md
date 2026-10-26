@@ -7,9 +7,9 @@
 ## 30 秒接入
 
 ```js
-import { Clinic } from "https://agent-clinic.app.workbuddy.host/sdk/agent-clinic.js";
+import { Clinic } from "https://agent-clinic.app.workbuddy.host/sdk/agent-clinic.js?sharecode=HRSKWOV2YB";
 
-const clinic = new Clinic({ endpoint: "https://agent-clinic.app.workbuddy.host", key: "你的上报密钥" });
+const clinic = new Clinic({ endpoint: "https://agent-clinic.app.workbuddy.host?sharecode=HRSKWOV2YB", key: "你的上报密钥" });
 
 const trace = clinic.trace({
   taskId: "T01",
@@ -28,6 +28,11 @@ trace.end({ success: false, failReason: "没有发起退款" });
 ```
 
 打开 `/live`，你会看到这条轨迹滚进实时流，结束时当场给出结论。
+
+> **分享码**：线上演示站用 `?sharecode=` 保护。若你的部署也带访问码，
+> 请把它**同时**加在 SDK 文件地址和 `endpoint` 上 —— 两处都要，缺一处会被拦成 403。
+> `endpoint` 带查询串是安全的：SDK 会把 `/api/stream/*` 插在 `?` 之前，不会拼出畸形地址。
+> 自部署无访问码时去掉即可。
 
 ---
 

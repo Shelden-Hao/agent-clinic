@@ -269,7 +269,7 @@ class Clinic {
     this._flushing = true;
     const batch = this.queue.splice(0, Math.max(this.opt.batchSize, this.queue.length));
     try {
-      const url = `${this.opt.endpoint}/api/stream/${this._path(batch)}`;
+      const url = this._url(this._path(batch));
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), this.opt.timeout);
       const res = await fetch(url, {
@@ -301,6 +301,21 @@ class Clinic {
     // 一批里可能既有 step 又有 trace，按多数派决定走哪个端点
     const steps = batch.filter((b) => b.item.type === "step").length;
     return steps * 2 >= batch.length ? "step" : "trace";
+  }
+
+  /** 拼上报地址。
+   *
+   * endpoint 允许带查询串 —— 比如平台分享码 `https://host?sharecode=xxx`。
+   * 直接写 `${endpoint}/api/stream/step` 会拼成 `host?sharecode=xxx/api/stream/step`：
+   * 查询串把路径整个吃掉，请求打到站点根，静默 403。所以把 path 插在 ? 之前、
+   * 查询串留在最后。
+   */
+  _url(path) {
+    const base = String(this.opt.endpoint);
+    const q = base.indexOf("?");
+    const root = (q === -1 ? base : base.slice(0, q)).replace(/\/+$/, "");
+    const qs = q === -1 ? "" : base.slice(q);
+    return `${root}/api/stream/${path}${qs}`;
   }
 
   /** 关闭定时器。用完记得调，否则 setInterval 会一直在。 */
