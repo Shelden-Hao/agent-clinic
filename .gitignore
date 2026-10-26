@@ -26,3 +26,6 @@ web/tsconfig.tsbuildinfo
 # 复核记录是运行时状态，不进仓库。
 # 新仓库第一次打开时队列是空的、全部待签字 —— 这本来就是正确的初始状态。
 data/reviews.json
+
+# 本地工作笔记（会话记忆、临时分析），不进公开仓库
+.workbuddy/
